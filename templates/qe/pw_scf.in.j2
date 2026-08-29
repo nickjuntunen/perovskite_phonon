@@ -1,0 +1,41 @@
+&CONTROL
+  calculation = 'scf'
+  prefix      = '{{ prefix }}'
+  outdir      = '{{ outdir }}'
+  pseudo_dir  = '{{ pseudo_dir }}'
+  tstress     = .true.
+  tprnfor     = .true.
+/
+&SYSTEM
+  ibrav       = 0
+  nat         = {{ sites|length }}
+  ntyp        = {{ species|length }}
+  ecutwfc     = {{ ecutwfc }}
+  ecutrho     = {{ ecutrho }}
+{% if input_dft %}
+  input_dft   = '{{ input_dft }}'
+{% endif %}
+  occupations = '{{ occupations }}'
+{% if occupations == 'smearing' %}
+  smearing    = '{{ smearing }}'
+  degauss     = {{ degauss }}
+{% endif %}
+/
+&ELECTRONS
+  conv_thr    = {{ conv_thr }}
+  mixing_beta = {{ mixing_beta }}
+/
+ATOMIC_SPECIES
+{% for sp in species %}
+  {{ '%-4s'|format(sp.symbol) }} {{ '%10.5f'|format(sp.mass) }}  {{ sp.pseudopotential }}
+{% endfor %}
+ATOMIC_POSITIONS crystal
+{% for site in sites %}
+  {{ '%-4s'|format(site.symbol) }} {{ '%14.10f'|format(site.pos[0]) }} {{ '%14.10f'|format(site.pos[1]) }} {{ '%14.10f'|format(site.pos[2]) }}
+{% endfor %}
+CELL_PARAMETERS angstrom
+{% for row in cell %}
+  {{ '%14.10f'|format(row[0]) }} {{ '%14.10f'|format(row[1]) }} {{ '%14.10f'|format(row[2]) }}
+{% endfor %}
+K_POINTS automatic
+  {{ kpts[0] }} {{ kpts[1] }} {{ kpts[2] }} {{ koffset[0] }} {{ koffset[1] }} {{ koffset[2] }}

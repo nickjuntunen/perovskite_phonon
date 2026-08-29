@@ -1,0 +1,20 @@
+Phonon dispersion via DFPT for {{ prefix }}
+&inputph
+{% for sp in species %}
+  amass({{ loop.index }}) = {{ '%.5f'|format(sp.mass) }},
+{% endfor %}
+  prefix      = '{{ prefix }}',
+  outdir      = '{{ outdir }}',
+  fildyn      = '{{ fildyn }}',
+  tr2_ph      = {{ tr2_ph }},
+  ldisp       = .true.,
+  nq1         = {{ qpts[0] }},
+  nq2         = {{ qpts[1] }},
+  nq3         = {{ qpts[2] }},
+{% if epsil %}
+  epsil       = .true.,
+{% endif %}
+{% if zeu %}
+  zeu         = .true.,
+{% endif %}
+/
