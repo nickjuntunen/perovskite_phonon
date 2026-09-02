@@ -28,8 +28,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from generate_qe_input import QE_INPUTS_DIR
-from scf_diagnostics import find_scf_charge_errors, regenerate_with_smearing
+from src.generate_qe_input import QE_INPUTS_DIR
+from src.scf_diagnostics import find_scf_charge_errors, regenerate_with_smearing
 
 STRUCTURES_DIR = PROJECT_ROOT / "data" / "cubic_structures"
 
