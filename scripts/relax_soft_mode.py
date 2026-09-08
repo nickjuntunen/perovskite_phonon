@@ -45,20 +45,23 @@ from ase.filters import FrechetCellFilter
 from ase.optimize import LBFGS
 from mace.calculators import mace_mp
 
-from src.generate_qe_input import QE_INPUTS_DIR, generate_inputs_for_structure, pbesol_config_for
-from src.soft_mode_distortion import (
+from generate_qe_input import QE_INPUTS_DIR, generate_inputs_for_structure, pbesol_config_for
+from soft_mode_distortion import (
     ModeSeed,
     build_multi_mode_distorted_supercell,
     most_unstable_mode,
     parse_dyn_file,
 )
-from src.unstable_modes import rank_unstable_modes, top_modes_per_q
+from unstable_modes import rank_unstable_modes, top_modes_per_q
 
 TILTED_STRUCTURES_DIR = PROJECT_ROOT / "data" / "tilted_structures"
 
 
 def relax_with_mace(atoms, fmax: float, steps: int):
-    atoms.calc = mace_mp(model="medium", device="cpu", default_dtype="float64")
+    import torch
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    atoms.calc = mace_mp(model="medium", device=device, default_dtype="float64")
     optimizer = LBFGS(FrechetCellFilter(atoms))
     optimizer.run(fmax=fmax, steps=steps)
     return atoms

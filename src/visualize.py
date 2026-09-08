@@ -11,9 +11,10 @@ q-point, under a "Diagonalizing the dynamical matrix" section.
 """
 
 import re
-
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+plt.style.use("my_style")
 from matplotlib.animation import FuncAnimation, PillowWriter
 from ase.io import read
 
@@ -187,17 +188,22 @@ def plot_dispersion(freq_path, labels, out_path="dispersion.png"):
 
 
 if __name__ == "__main__":
-    freqs, vectors = parse_qe_modes(
-        "./sherlock_outputs/ph_first/CsPbI3/CsPbI3.dyn1",
-        q=(0.0, 0.0, 0.0),
-    )
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--cif", type=str, default="./data/cubic_structures/CsCuCl3.cif", help="CIF of the base structure")
+    parser.add_argument("--out", type=str, default="./output", help="Output directory")
+    parser.add_argument("--dyn", type=str, default="./sherlock_outputs/ph_first/CsCuCl3/CsCuCl3.dyn1", help="QE .dynN file for the q-point of interest")
+    parser.add_argument("--freq", type=str, default="./sherlock_outputs/ph_first/CsCuCl3/CsCuCl3.freq", help="matdyn.x .freq file for the dispersion plot")
+    parser.add_argument("-q", "--q", type=float, nargs=3, default=(0.0, 0.0, 0.0), help="q-point (qx, qy, qz) in the units the .dynN file uses (2*pi/alat)")
+
+    args = parser.parse_args()
+    freqs, vectors = parse_qe_modes(args.dyn, q=args.q)
     print("Gamma-point frequencies (cm-1):", freqs)
     lowest = int(np.argmin(freqs))
-    plot_mode_arrows("./data/cubic_structures/CsPbI3.cif", vectors, lowest, freqs, out_path="gamma_softmode_arrows.png")
-    animate_mode_gif("./data/cubic_structures/CsPbI3.cif", vectors, lowest, freqs, out_path="gamma_softmode.gif")
+    plot_mode_arrows(args.cif, vectors, lowest, freqs, out_path=args.out + "/gamma_softmode_arrows.png")
+    animate_mode_gif(args.cif, vectors, lowest, freqs, out_path=args.out + "/gamma_softmode.gif")
 
     plot_dispersion(
-        "./sherlock_outputs/ph_first/CsPbI3/CsPbI3.freq",
+        args.freq,
         labels=["G", "X", "M", "G", "R", "X"],
-        out_path="CsPbI3_dispersion.png",
+        out_path=args.out + "/CsCuCl3_dispersion.png",
     )
