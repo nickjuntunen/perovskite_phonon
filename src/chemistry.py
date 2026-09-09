@@ -62,3 +62,38 @@ class Ion:
     def label(self) -> str:
         sign = "+" if self.oxidation_state > 0 else "-"
         return f"{self.symbol}{abs(self.oxidation_state)}{sign}"
+
+
+def expected_unpaired_electrons(symbol: str, oxidation_state: int) -> int | None:
+    """Predicted number of unpaired electrons for an ion, via Hund's-rule filling
+    of the mendeleev ground-state configuration ionized to `oxidation_state`.
+
+    Returns None if mendeleev has no data for the element, or if
+    oxidation_state <= 0 (mendeleev's ionize() only removes electrons, so
+    anions -- always closed-shell in this pipeline's X-site halides/
+    chalcogenides -- aren't handled here; they don't need to be).
+    """
+    if oxidation_state <= 0:
+        return 0
+    try:
+        ion_ec = mendeleev_element(symbol).ec.ionize(oxidation_state)
+    except (ValueError, Exception):
+        return None
+    return ion_ec.unpaired_electrons()
+
+
+def expected_spin_only_moment_bohr(symbol: str, oxidation_state: int) -> float | None:
+    """Spin-only magnetic moment (mu_B) predicted for an ion, sqrt(n(n+2))
+    from its Hund's-rule unpaired-electron count. None if undetermined."""
+    unpaired = expected_unpaired_electrons(symbol, oxidation_state)
+    if unpaired is None:
+        return None
+    return (unpaired * (unpaired + 2)) ** 0.5
+
+
+def is_open_shell(symbol: str, oxidation_state: int) -> bool:
+    """True if this ion is predicted to carry unpaired electrons and therefore
+    needs nspin=2 (+ a starting_magnetization guess) rather than a
+    non-spin-polarized SCF."""
+    unpaired = expected_unpaired_electrons(symbol, oxidation_state)
+    return bool(unpaired)

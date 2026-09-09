@@ -76,10 +76,11 @@ def generate_all() -> None:
 
                 name = f"{a}{b}{x}3"
                 try:
-                    structure, _ions = build_monatomic_perovskite(a, b, x)
+                    structure, ions = build_monatomic_perovskite(a, b, x)
                     cif_path = STRUCTURES_DIR / f"{name}.cif"
                     ase.io.write(cif_path, structure)
-                    generate_inputs_for_structure(cif_path, pbesol_config_for, QE_INPUTS_DIR / name)
+                    config = pbesol_config_for(structure, ions=ions)
+                    generate_inputs_for_structure(cif_path, config, QE_INPUTS_DIR / name)
                 except ValueError as error:
                     skipped.append((name, str(error)))
                     continue

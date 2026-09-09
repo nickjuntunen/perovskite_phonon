@@ -12,16 +12,16 @@ every element in the structure to a real UPF filename, since a wrong guess
 would produce an input file that silently fails (or worse, quietly uses the
 wrong functional) rather than erroring here.
 """
+from chemistry import Ion, is_open_shell, expected_unpaired_electrons
+import pseudopotentials
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
 import ase.data
 import ase.io
 import jinja2
-
-import pseudopotentials
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = PROJECT_ROOT / "templates" / "qe"
@@ -46,11 +46,6 @@ class QEInputConfig:
     pseudo_dir: str = "./pseudo"
     outdir: str = "./out"
 
-    # Exchange-correlation functional. Leave None to let pw.x read it from the
-    # pseudopotentials themselves (standard practice: pick a PP set that all
-    # matches one functional, e.g. an SSSP PBE set, rather than overriding here).
-    input_dft: str | None = None
-
     # Basis-set (plane-wave) cutoffs, in Ry.
     ecutwfc: float = 60.0
     ecutrho: float = 480.0
@@ -66,33 +61,35 @@ class QEInputConfig:
 
     # Real-space replication of the structure before writing it out, e.g. (2, 2, 2)
     # for a supercell. (1, 1, 1) leaves the structure as read from data/structures.
+    # Ought to stay (1, 1, 1) as the idea behind DFPT is "no supercell"
     supercell: tuple[int, int, int] = (1, 1, 1)
-
-    # DFPT phonon dispersion is sampled on this q-point grid (ldisp + nq1/nq2/nq3),
-    # not by building a real-space supercell — that's the point of DFPT.
     qpts: tuple[int, int, int] = (4, 4, 4)
     tr2_ph: float = 1.0e-14
+
     # Born effective charges + dielectric tensor, for LO-TO splitting. Halide
     # perovskites are polar/ionic, so this normally should stay on.
     epsil: bool = True
     zeu: bool = True
 
+    magnetic_moments: dict[str, float] = field(default_factory=dict)
 
-def _species_table(atoms: ase.Atoms) -> list[dict]:
-    """Unique elements in first-seen order.
+    @property
+    def nspin(self) -> int:
+        return 2 if self.magnetic_moments else 1
 
-    This order is what ATOMIC_SPECIES uses in the SCF input, and ph.x's
-    amass(i) indices must match it exactly, so both templates are built from
-    the same species table.
-    """
+
+def _species_table(atoms: ase.Atoms, config: QEInputConfig | None = None) -> list[dict]:
     seen = []
     for symbol in atoms.get_chemical_symbols():
         if symbol not in seen:
             seen.append(symbol)
-    return [
-        {"symbol": symbol, "mass": ase.data.atomic_masses[ase.data.atomic_numbers[symbol]]}
-        for symbol in seen
-    ]
+    table = []
+    for symbol in seen:
+        entry = {"symbol": symbol, "mass": ase.data.atomic_masses[ase.data.atomic_numbers[symbol]]}
+        if config is not None and symbol in config.magnetic_moments:
+            entry["starting_magnetization"] = config.magnetic_moments[symbol]
+        table.append(entry)
+    return table
 
 
 def _prepare_structure(atoms: ase.Atoms, config: QEInputConfig) -> ase.Atoms:
@@ -104,7 +101,7 @@ def _prepare_structure(atoms: ase.Atoms, config: QEInputConfig) -> ase.Atoms:
 def render_pw_scf_input(atoms: ase.Atoms, config: QEInputConfig, prefix: str) -> str:
     """Render the pw.x SCF input for a structure."""
     atoms = _prepare_structure(atoms, config)
-    species = _species_table(atoms)
+    species = _species_table(atoms, config)
 
     missing = [sp["symbol"] for sp in species if sp["symbol"] not in config.pseudopotentials]
     if missing:
@@ -122,12 +119,12 @@ def render_pw_scf_input(atoms: ase.Atoms, config: QEInputConfig, prefix: str) ->
         prefix=prefix,
         outdir=config.outdir,
         pseudo_dir=config.pseudo_dir,
-        input_dft=config.input_dft,
         ecutwfc=config.ecutwfc,
         ecutrho=config.ecutrho,
         occupations=config.occupations,
         smearing=config.smearing,
         degauss=config.degauss,
+        nspin=config.nspin,
         conv_thr=config.conv_thr,
         mixing_beta=config.mixing_beta,
         kpts=config.kpts,
@@ -156,7 +153,7 @@ def render_ph_dfpt_input(atoms: ase.Atoms, config: QEInputConfig, prefix: str) -
     )
 
 
-def pbesol_config_for(atoms: ase.Atoms, **overrides) -> QEInputConfig:
+def pbesol_config_for(atoms: ase.Atoms, ions: dict[str, Ion] | None = None, **overrides) -> QEInputConfig:
     """Build a QEInputConfig from the local SSSP-style PBEsol set (data/pseudopotentials/).
 
     Cutoffs are the max of each element's individually recommended cutoff
@@ -173,6 +170,15 @@ def pbesol_config_for(atoms: ase.Atoms, **overrides) -> QEInputConfig:
         ecutwfc=ecutwfc,
         ecutrho=ecutrho,
     )
+    if ions is not None:
+        magnetic_moments = {}
+        for ion in ions.values():
+            if is_open_shell(ion.symbol, ion.oxidation_state):
+                n_unpaired = expected_unpaired_electrons(ion.symbol, ion.oxidation_state)
+                magnetic_moments[ion.symbol] = n_unpaired / pseudopotentials.valence_electrons(ion.symbol)
+        if magnetic_moments:
+            fields["magnetic_moments"] = magnetic_moments
+            fields.setdefault("occupations", "smearing")  # redundant once you flip the global default
     fields.update(overrides)
     return QEInputConfig(**fields)
 

@@ -44,6 +44,11 @@ def main() -> None:
     parser.add_argument("--degauss", type=float, default=0.01, help="Smearing width, Ry (default: 0.01, QEInputConfig's default)")
     parser.add_argument("--smearing", default="gaussian", help="Smearing type (default: gaussian)")
     parser.add_argument("--dry-run", action="store_true", help="Print which structures would be fixed without writing anything")
+    parser.add_argument(
+        "--metallic", action="store_true",
+        help="Structures are genuinely metallic once smearing lets SCF converge -- also set "
+        "DFPT epsil=False, zeu=False (Born charges + LO-TO splitting are only valid for insulators)",
+    )
     args = parser.parse_args()
 
     if args.names:
@@ -65,14 +70,20 @@ def main() -> None:
         print("\n--dry-run: not writing anything.")
         return
 
-    done = regenerate_with_smearing(names, STRUCTURES_DIR, QE_INPUTS_DIR, smearing=args.smearing, degauss=args.degauss)
-    print(f"\nRegenerated {len(done)}/{len(names)} structures' SCF+DFPT inputs with occupations='smearing' (degauss={args.degauss} Ry).")
-    print("Resubmit their SCF (then DFPT) jobs the same way as before -- same STRUCTURE names, same run_scf.sbatch/run_ph.sbatch.")
-    print(
-        "\nNote: if any of these turn out genuinely metallic once smearing lets SCF finish, "
-        "the DFPT step's epsil/zeu (Born charges + LO-TO splitting) are only valid for "
-        "insulators -- watch for a separate failure there and consider epsil=False for those."
+    done = regenerate_with_smearing(
+        names, STRUCTURES_DIR, QE_INPUTS_DIR, smearing=args.smearing, degauss=args.degauss,
+        epsil=not args.metallic, zeu=not args.metallic,
     )
+    print(f"\nRegenerated {len(done)}/{len(names)} structures' SCF+DFPT inputs with occupations='smearing' (degauss={args.degauss} Ry).")
+    if args.metallic:
+        print("DFPT inputs regenerated with epsil=False, zeu=False (metallic). Resubmit just their DFPT (ph-*) jobs -- SCF is unaffected.")
+    else:
+        print("Resubmit their SCF (then DFPT) jobs the same way as before -- same STRUCTURE names, same run_scf.sbatch/run_ph.sbatch.")
+        print(
+            "\nNote: if any of these turn out genuinely metallic once smearing lets SCF finish, "
+            "the DFPT step's epsil/zeu (Born charges + LO-TO splitting) are only valid for "
+            "insulators -- rerun with --metallic for those."
+        )
 
 
 if __name__ == "__main__":

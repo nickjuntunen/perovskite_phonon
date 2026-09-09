@@ -71,10 +71,17 @@ def regenerate_with_smearing(
     smearing: str = "gaussian",
     degauss: float = 0.01,
     structure_suffix: str = ".cif",
+    epsil: bool = True,
+    zeu: bool = True,
 ) -> list[str]:
     """Re-render each name's SCF+DFPT inputs in place, at qe_inputs_dir/<name>/,
     with occupations='smearing' instead of the default 'fixed', reusing the
     same structure geometry already in structures_dir.
+
+    Pass epsil=False, zeu=False for structures that turned out genuinely
+    metallic once smearing let SCF converge -- DFPT's Born effective charges
+    and LO-TO splitting are only valid for insulators and ph.x hard-errors
+    ("no elec. field with metals") otherwise.
 
     Returns the names actually regenerated, skipping (with a printed
     warning) any whose structure file isn't found rather than raising, so
@@ -87,7 +94,9 @@ def regenerate_with_smearing(
             print(f"Skipping {name}: no structure file at {structure_path}")
             continue
         atoms = ase.io.read(structure_path)
-        config = pbesol_config_for(atoms, occupations="smearing", smearing=smearing, degauss=degauss)
+        config = pbesol_config_for(
+            atoms, occupations="smearing", smearing=smearing, degauss=degauss, epsil=epsil, zeu=zeu
+        )
         generate_inputs_for_structure(structure_path, config, Path(qe_inputs_dir) / name)
         done.append(name)
     return done

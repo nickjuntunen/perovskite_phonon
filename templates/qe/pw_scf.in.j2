@@ -12,13 +12,16 @@
   ntyp        = {{ species|length }}
   ecutwfc     = {{ ecutwfc }}
   ecutrho     = {{ ecutrho }}
-{% if input_dft %}
-  input_dft   = '{{ input_dft }}'
-{% endif %}
   occupations = '{{ occupations }}'
 {% if occupations == 'smearing' %}
   smearing    = '{{ smearing }}'
   degauss     = {{ degauss }}
+{% endif %}
+{% if nspin == 2 %}
+  nspin       = {{ nspin }}
+{% for sp in species if sp.starting_magnetization is defined %}
+  starting_magnetization({{ loop.index }}) = {{ '%.4f'|format(sp.starting_magnetization) }},
+{% endfor %}
 {% endif %}
 /
 &ELECTRONS

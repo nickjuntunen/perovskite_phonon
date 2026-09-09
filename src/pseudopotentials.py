@@ -7,6 +7,8 @@ an SSSP-style PBEsol pseudopotential set.
 
 import json
 from pathlib import Path
+from upf_tools import UPFDict
+
 
 PSEUDO_ROOT = Path(__file__).resolve().parent.parent / "data" / "pseudopotentials"
 LIBRARY_DIR = PSEUDO_ROOT / "pbesol_library"
@@ -48,3 +50,8 @@ def suggested_cutoffs(symbols: list[str]) -> tuple[float, float]:
     ecutwfc = max(_CUTOFFS[s]["cutoff_wfc"] for s in symbols)
     ecutrho = max(_CUTOFFS[s]["cutoff_rho"] for s in symbols)
     return ecutwfc, ecutrho
+
+
+def valence_electrons(upf_file: str) -> int:
+    """Look up the number of valence electrons from the pseudopotential file."""
+    return UPFDict.from_upf(upf_file)["header"]["z_valence"]

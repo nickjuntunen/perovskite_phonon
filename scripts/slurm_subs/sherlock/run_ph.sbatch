@@ -58,7 +58,22 @@ sed -e "s|outdir *= *'.*'|outdir      = '${SCF_OUTDIR}'|" \
     "${SRC_INPUT_DIR}/${STRUCTURE}.ph.in" > "${RUN_DIR}/${STRUCTURE}.ph.in"
 
 cd "${RUN_DIR}"
-srun ph.x -in "${STRUCTURE}.ph.in" > "${STRUCTURE}.ph.out"
+# ph.x's MPI ranks sometimes exit via Fortran STOP 1, which srun reports as
+# exit code 1 even though the calculation completed normally -- with set -e
+# that aborted the script before q2r.x/matdyn.x ran, discarding a good result.
+# Tolerate the exit code here and check ph.out's own status markers instead.
+# Note "JOB DONE" alone is not sufficient: ph.x also prints it after a
+# self-consistency divergence ("No convergence has been achieved"), so check
+# for that failure explicitly too.
+srun ph.x -in "${STRUCTURE}.ph.in" > "${STRUCTURE}.ph.out" || true
+if ! grep -q "JOB DONE" "${STRUCTURE}.ph.out"; then
+    echo "ph.x did not complete (no JOB DONE marker in ${STRUCTURE}.ph.out)" >&2
+    exit 1
+fi
+if grep -q "No convergence has been achieved" "${STRUCTURE}.ph.out"; then
+    echo "ph.x did not converge (see ${STRUCTURE}.ph.out)" >&2
+    exit 1
+fi
 
 # q2r.x: real-space force constants from the dyn0..dynN files ph.x just wrote.
 cat > q2r.in <<EOF
