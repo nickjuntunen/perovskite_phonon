@@ -52,6 +52,7 @@ def suggested_cutoffs(symbols: list[str]) -> tuple[float, float]:
     return ecutwfc, ecutrho
 
 
-def valence_electrons(upf_file: str) -> int:
+def valence_electrons(symbol: str) -> int:
     """Look up the number of valence electrons from the pseudopotential file."""
+    upf_file = LIBRARY_DIR / pseudopotential_filename(symbol)
     return UPFDict.from_upf(upf_file)["header"]["z_valence"]

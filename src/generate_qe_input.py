@@ -166,7 +166,6 @@ def pbesol_config_for(atoms: ase.Atoms, ions: dict[str, Ion] | None = None, **ov
     fields = dict(
         pseudopotentials=pseudopotentials.pseudopotentials_for(symbols),
         pseudo_dir=str(pseudopotentials.LIBRARY_DIR),
-        input_dft="PBEsol",
         ecutwfc=ecutwfc,
         ecutrho=ecutrho,
     )
