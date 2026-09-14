@@ -19,8 +19,10 @@
 {% endif %}
 {% if nspin == 2 %}
   nspin       = {{ nspin }}
-{% for sp in species if sp.starting_magnetization is defined %}
+{% for sp in species %}
+{% if sp.starting_magnetization is defined %}
   starting_magnetization({{ loop.index }}) = {{ '%.4f'|format(sp.starting_magnetization) }},
+{% endif %}
 {% endfor %}
 {% endif %}
 /

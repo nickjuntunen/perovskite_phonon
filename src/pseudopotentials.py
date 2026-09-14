@@ -24,9 +24,22 @@ def _library_files() -> dict[str, str]:
 
 _FILES_BY_ELEMENT = _library_files()
 
+# Elements whose only library pseudopotential crashes pw.x on this project's QE
+# 7.3.1 build: a low ecutrho hits 'Error in routine ylmr2: l too large, or
+# wrong number of Ylm required'; raising ecutrho (tried up to 12x ecutwfc)
+# doesn't fix it -- it just turns into a silent segfault further into setup.
+# Root cause not confirmed, but looks like this build's compiled lmaxx doesn't
+# cover an angular-momentum channel these legacy atompaw PAW datasets need.
+# No alternative pseudopotential exists in the library to swap in.
+BROKEN_ELEMENTS = {
+    "Eu": "Eu.paw.pbesol.z_17.atompaw.wentzcovitch.v1.0.legacy.upf crashes pw.x (see RbEuBr3)",
+}
+
 
 def pseudopotential_filename(symbol: str) -> str:
     """Look up the PBEsol UPF filename for an element symbol."""
+    if symbol in BROKEN_ELEMENTS:
+        raise ValueError(f"{symbol} pseudopotential is known broken: {BROKEN_ELEMENTS[symbol]}")
     filename = _FILES_BY_ELEMENT.get(symbol)
     if filename is None:
         raise ValueError(f"No PBEsol pseudopotential found for element {symbol!r} in {LIBRARY_DIR}")

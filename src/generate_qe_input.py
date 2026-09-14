@@ -23,10 +23,11 @@ import ase.data
 import ase.io
 import jinja2
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path("/home/rotskofflab6/Desktop/research/perovskite_phonon")
 TEMPLATES_DIR = PROJECT_ROOT / "templates" / "qe"
 STRUCTURES_DIR = PROJECT_ROOT / "data" / "cubic_structures"
 QE_INPUTS_DIR = PROJECT_ROOT / "data" / "qe_inputs"
+OUT_DIR = PROJECT_ROOT / "out"
 
 _env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(TEMPLATES_DIR),
@@ -50,6 +51,10 @@ class QEInputConfig:
     ecutwfc: float = 60.0
     ecutrho: float = 480.0
 
+    # 'fixed' unless a magnetic (open-shell) sample bumps this to 'smearing'
+    # in pbesol_config_for -- ph.x refuses epsil/zeu (electric-field response)
+    # whenever the SCF used smearing, regardless of the material's actual gap,
+    # so smearing should stay opt-in rather than the default for every sample.
     occupations: str = "fixed"
     smearing: str = "gaussian"
     degauss: float = 0.01
@@ -100,6 +105,7 @@ def _prepare_structure(atoms: ase.Atoms, config: QEInputConfig) -> ase.Atoms:
 
 def render_pw_scf_input(atoms: ase.Atoms, config: QEInputConfig, prefix: str) -> str:
     """Render the pw.x SCF input for a structure."""
+    assert isinstance(atoms, ase.Atoms)
     atoms = _prepare_structure(atoms, config)
     species = _species_table(atoms, config)
 
@@ -131,7 +137,7 @@ def render_pw_scf_input(atoms: ase.Atoms, config: QEInputConfig, prefix: str) ->
         koffset=config.koffset,
         species=species,
         sites=sites,
-        cell=atoms.cell[:],
+        cell=atoms.cell,
     )
 
 
@@ -163,9 +169,10 @@ def pbesol_config_for(atoms: ase.Atoms, ions: dict[str, Ion] | None = None, **ov
     """
     symbols = list(dict.fromkeys(atoms.get_chemical_symbols()))
     ecutwfc, ecutrho = pseudopotentials.suggested_cutoffs(symbols)
-    fields = dict(
+    fields: dict = dict(
         pseudopotentials=pseudopotentials.pseudopotentials_for(symbols),
         pseudo_dir=str(pseudopotentials.LIBRARY_DIR),
+        outdir=str(OUT_DIR),
         ecutwfc=ecutwfc,
         ecutrho=ecutrho,
     )
@@ -174,10 +181,16 @@ def pbesol_config_for(atoms: ase.Atoms, ions: dict[str, Ion] | None = None, **ov
         for ion in ions.values():
             if is_open_shell(ion.symbol, ion.oxidation_state):
                 n_unpaired = expected_unpaired_electrons(ion.symbol, ion.oxidation_state)
+                assert isinstance(n_unpaired, int)
                 magnetic_moments[ion.symbol] = n_unpaired / pseudopotentials.valence_electrons(ion.symbol)
         if magnetic_moments:
             fields["magnetic_moments"] = magnetic_moments
-            fields.setdefault("occupations", "smearing")  # redundant once you flip the global default
+            fields["occupations"] = "smearing"
+            # ph.x rejects epsil/zeu after a smearing SCF ("no elec. field with
+            # metals"), so magnetic samples skip Born charges/LO-TO rather than
+            # crash at the phonon step.
+            fields["epsil"] = False
+            fields["zeu"] = False
     fields.update(overrides)
     return QEInputConfig(**fields)
 
@@ -193,9 +206,11 @@ def generate_inputs_for_structure(
     that builds one from the structure's atoms.
     """
     atoms = ase.io.read(structure_path)
+    assert isinstance(atoms, ase.Atoms)
     if callable(config):
         config = config(atoms)
     prefix = structure_path.stem
+    config.outdir = str(OUT_DIR / prefix)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     scf_path = out_dir / f"{prefix}.scf.in"
