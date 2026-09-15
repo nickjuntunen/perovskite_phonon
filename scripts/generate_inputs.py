@@ -36,9 +36,8 @@ import ase.data
 import ase.io
 
 from generate_qe_input import QE_INPUTS_DIR, generate_inputs_for_structure, pbesol_config_for
+from paths import STRUCTURES_DIR
 from perovskite_builder import MONATOMIC_A_SITE_SYMBOLS, available_ions, build_monatomic_perovskite
-
-STRUCTURES_DIR = PROJECT_ROOT / "data" / "cubic_structures"
 
 
 def _is_monatomic(symbol: str) -> bool:

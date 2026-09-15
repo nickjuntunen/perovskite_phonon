@@ -35,6 +35,7 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
 from generate_inputs import candidate_ions
+from paths import DATA_ROOT
 
 DESCRIPTOR_NAMES = [
     "r_A", "r_B", "r_X", "tolerance_factor", "octahedral_factor",
@@ -108,7 +109,7 @@ def main() -> None:
         help="scripts/score_vdos.py's output CSV, to cross-reference clusters against vDOS-target fitness",
     )
     parser.add_argument("--top-n", type=int, default=15, help="How many top-fitness structures to report cluster membership for")
-    parser.add_argument("--out-csv", type=Path, default=PROJECT_ROOT / "data" / "composition_clusters.csv")
+    parser.add_argument("--out-csv", type=Path, default=DATA_ROOT / "composition_clusters.csv")
     parser.add_argument("--random-state", type=int, default=0)
     args = parser.parse_args()
 

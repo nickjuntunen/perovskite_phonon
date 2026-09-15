@@ -28,17 +28,21 @@ from ase.optimize import LBFGS
 from mace.calculators import mace_mp
 
 from generate_qe_input import QE_INPUTS_DIR, STRUCTURES_DIR, generate_inputs_for_structure, pbesol_config_for
-
-# Same foundation checkpoint already in use for this group's MACE work
-# (see ~/mat_tmmc/scripts/subs/sherlock/train_distill_mace.sh).
-FOUNDATION_MODEL = Path("/home/groups/rotskoff/nick/mace-mpa-0-medium.model")
-RELAXED_DIR = PROJECT_ROOT / "data" / "relaxed_structures"
+from paths import RELAXED_STRUCTURES_DIR as RELAXED_DIR
 
 
 def relax(name: str, fmax: float) -> Path:
     cif_path = STRUCTURES_DIR / f"{name}.cif"
     atoms = ase.io.read(cif_path)
-    atoms.calc = mace_mp(model=str(FOUNDATION_MODEL), device="cpu", default_dtype="float64")
+    # mace_mp(model="medium", ...) auto-downloads/caches the standard MACE-MP-0
+    # "medium" foundation model matched to the installed mace-torch version --
+    # same as relax_soft_mode.py/batch_relax_soft_mode.py. A previous version of
+    # this function pointed at a local pinned checkpoint
+    # ($GROUP_HOME/nick/mace-mpa-0-medium.model) shared with another project;
+    # that file was pickled by a different mace-torch version than what's
+    # currently installed (AttributeError on mace.modules.radial.AgnesiTransform
+    # while unpickling) and isn't usable as-is.
+    atoms.calc = mace_mp(model="medium", device="cpu", default_dtype="float64")
 
     optimizer = LBFGS(FrechetCellFilter(atoms))
     optimizer.run(fmax=fmax, steps=500)

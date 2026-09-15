@@ -19,6 +19,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
+from paths import DATA_ROOT, DOS_DIR
 from phonon_dos import parse_matdyn_dos
 from vdos_features import extract_features, gap_fitness, mode_fitness
 
@@ -26,10 +27,10 @@ from vdos_features import extract_features, gap_fitness, mode_fitness
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
-        "--dos-root", type=Path, required=True,
-        help="Directory holding each structure's <name>.dos (synced matdyn.x fldos output; see scripts/prepare_dos_inputs.py)",
+        "--dos-root", type=Path, default=DOS_DIR,
+        help="Directory holding each structure's <name>.dos (matdyn.x fldos output; see scripts/prepare_dos_inputs.py)",
     )
-    parser.add_argument("--out-csv", type=Path, default=PROJECT_ROOT / "data" / "vdos_scores.csv")
+    parser.add_argument("--out-csv", type=Path, default=DATA_ROOT / "vdos_scores.csv")
     parser.add_argument("--target", choices=["gap", "mode"], required=True)
     parser.add_argument("--center", type=float, help="Target gap center, cm-1 (--target gap)")
     parser.add_argument("--width", type=float, help="Target gap width, cm-1 (--target gap)")

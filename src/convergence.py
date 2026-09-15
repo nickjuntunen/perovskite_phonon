@@ -37,11 +37,9 @@ import ase.io
 import numpy as np
 
 from generate_qe_input import QE_INPUTS_DIR, QEInputConfig, generate_inputs_for_structure
+from paths import CONVERGENCE_MANIFEST_DIR
 from soft_mode_distortion import parse_dyn_file
 from unstable_modes import HIGH_SYMMETRY_LABELS, is_numbered_dyn_file, label_q
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CONVERGENCE_MANIFEST_DIR = PROJECT_ROOT / "data" / "convergence_tests"
 
 # ecutwfc/kpts/tr2_ph sweeps run at a single q-point -- see module docstring.
 GAMMA_ONLY_QPTS = (1, 1, 1)

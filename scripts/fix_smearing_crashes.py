@@ -29,9 +29,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from src.generate_qe_input import QE_INPUTS_DIR
+from src.paths import STRUCTURES_DIR
 from src.scf_diagnostics import find_scf_charge_errors, regenerate_with_smearing
-
-STRUCTURES_DIR = PROJECT_ROOT / "data" / "cubic_structures"
 
 
 def main() -> None:
@@ -41,6 +40,13 @@ def main() -> None:
         help="Root of scf_first/ output to scan for the error (one subdirectory per structure)",
     )
     parser.add_argument("--names", nargs="+", default=None, help="Structure names to fix directly, skipping the log scan")
+    parser.add_argument(
+        "--structures-dir", type=Path, default=None,
+        help="Directory holding <name>.cif to rebuild from (default: STRUCTURES_DIR, the pristine "
+        "un-relaxed cubic cell). Pass relaxed_structures/ (or tilted_structures/ for a _tilted name) "
+        "so the regenerated input keeps the already-relaxed geometry instead of reverting it -- see "
+        "orchestrate_pipeline.py's regenerate_smearing().",
+    )
     parser.add_argument("--degauss", type=float, default=0.01, help="Smearing width, Ry (default: 0.01, QEInputConfig's default)")
     parser.add_argument("--smearing", default="gaussian", help="Smearing type (default: gaussian)")
     parser.add_argument("--dry-run", action="store_true", help="Print which structures would be fixed without writing anything")
@@ -71,7 +77,7 @@ def main() -> None:
         return
 
     done = regenerate_with_smearing(
-        names, STRUCTURES_DIR, QE_INPUTS_DIR, smearing=args.smearing, degauss=args.degauss,
+        names, args.structures_dir or STRUCTURES_DIR, QE_INPUTS_DIR, smearing=args.smearing, degauss=args.degauss,
         epsil=not args.metallic, zeu=not args.metallic,
     )
     print(f"\nRegenerated {len(done)}/{len(names)} structures' SCF+DFPT inputs with occupations='smearing' (degauss={args.degauss} Ry).")

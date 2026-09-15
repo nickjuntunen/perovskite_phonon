@@ -42,11 +42,11 @@ from ase.optimize import LBFGS
 from mace.calculators import mace_mp
 
 from generate_qe_input import QE_INPUTS_DIR, generate_inputs_for_structure, pbesol_config_for
+from paths import PH_FIRST_DIR, TILTED_STRUCTURES_DIR
 from soft_mode_distortion import ModeSeed, build_multi_mode_distorted_supercell
 from unstable_modes import rank_unstable_modes, top_modes_per_q
 
-TILTED_STRUCTURES_DIR = PROJECT_ROOT / "data" / "tilted_structures"
-LOG_PATH = PROJECT_ROOT / "data" / "tilted_structures" / "batch_log.csv"
+LOG_PATH = TILTED_STRUCTURES_DIR / "batch_log.csv"
 
 
 def already_done(name: str) -> bool:
@@ -95,7 +95,7 @@ def process_one(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--ph-root", type=Path, default=PROJECT_ROOT / "sherlock_outputs" / "ph_first")
+    parser.add_argument("--ph-root", type=Path, default=PH_FIRST_DIR)
     parser.add_argument("--fmax", type=float, default=0.01)
     parser.add_argument("--steps", type=int, default=800)
     parser.add_argument("--amplitude", type=float, default=0.15)

@@ -35,6 +35,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
+from src.paths import PH_FIRST_DIR, QE_INPUTS_DIR
 from src.phonon_dos import generate_dos_inputs
 from src.unstable_modes import rank_unstable_modes
 
@@ -53,16 +54,16 @@ def _unstable_status(dyn_dir: Path) -> bool | None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
-        "--cubic-ph-root", type=Path, required=True,
-        help="Synced ph_first/ root for the original cubic-cell DFPT runs (one subdirectory per structure name)",
+        "--cubic-ph-root", type=Path, default=PH_FIRST_DIR,
+        help="ph_first/ root for the original cubic-cell DFPT runs (one subdirectory per structure name)",
     )
     parser.add_argument(
         "--tilted-ph-root", type=Path, default=None,
-        help="Synced ph_first/ root for <name>_tilted DFPT runs (default: same as --cubic-ph-root)",
+        help="ph_first/ root for <name>_tilted DFPT runs (default: same as --cubic-ph-root)",
     )
     parser.add_argument(
-        "--qe-inputs-dir", type=Path, required=True,
-        help="data/qe_inputs/ -- where each structure's *.scf.in/*.ph.in (and now *.q2r.in/*.matdyn_dos.in) live",
+        "--qe-inputs-dir", type=Path, default=QE_INPUTS_DIR,
+        help="qe_inputs/ -- where each structure's *.scf.in/*.ph.in (and now *.matdyn_dos.in) live",
     )
     parser.add_argument("--nk", type=int, nargs=3, default=(20, 20, 20), help="Dense q-mesh for the DOS interpolation (default: 20x20x20)")
     parser.add_argument("--deltaE", type=float, default=0.5, help="DOS bin width, cm-1 (default: 0.5)")
@@ -78,7 +79,6 @@ def main() -> None:
     )
 
     for name in materials:
-        import pdb; pdb.set_trace()
         cubic_unstable = _unstable_status(args.cubic_ph_root / name)
         if cubic_unstable is None:
             not_done.append(name)

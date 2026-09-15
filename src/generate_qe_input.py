@@ -13,6 +13,7 @@ would produce an input file that silently fails (or worse, quietly uses the
 wrong functional) rather than erroring here.
 """
 from chemistry import Ion, is_open_shell, expected_unpaired_electrons
+from paths import OUT_DIR, PROJECT_ROOT, QE_INPUTS_DIR, STRUCTURES_DIR, TEMPLATES_DIR
 import pseudopotentials
 
 from dataclasses import dataclass, field
@@ -22,12 +23,6 @@ from typing import Callable
 import ase.data
 import ase.io
 import jinja2
-
-PROJECT_ROOT = Path("/home/rotskofflab6/Desktop/research/perovskite_phonon")
-TEMPLATES_DIR = PROJECT_ROOT / "templates" / "qe"
-STRUCTURES_DIR = PROJECT_ROOT / "data" / "cubic_structures"
-QE_INPUTS_DIR = PROJECT_ROOT / "data" / "qe_inputs"
-OUT_DIR = PROJECT_ROOT / "out"
 
 _env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(TEMPLATES_DIR),
@@ -222,17 +217,36 @@ def generate_inputs_for_structure(
 
 def generate_inputs_for_all_structures(
     config: QEInputConfig | Callable[[ase.Atoms], QEInputConfig],
-) -> list[tuple[Path, Path]]:
-    """Generate SCF + DFPT inputs for every structure file in data/structures."""
+) -> tuple[list[tuple[Path, Path]], list[tuple[str, str]]]:
+    """Generate SCF + DFPT inputs for every structure file in data/cubic_structures.
+
+    A structure that can't be built (e.g. a missing pseudopotential/cutoff --
+    see pseudopotentials.BROKEN_ELEMENTS) is skipped and reported rather than
+    aborting the whole batch, matching scripts/generate_inputs.py's own
+    per-composition error handling.
+
+    Returns (written, skipped): written is the same (scf_path, ph_path) list
+    as before; skipped is a list of (structure_name, reason) pairs.
+    """
     written = []
+    skipped = []
     for structure_path in sorted(STRUCTURES_DIR.iterdir()):
         if structure_path.suffix.lower() not in {".cif", ".vasp", ".xyz", ".extxyz"}:
             continue
         out_dir = QE_INPUTS_DIR / structure_path.stem
-        written.append(generate_inputs_for_structure(structure_path, config, out_dir))
-    return written
+        try:
+            written.append(generate_inputs_for_structure(structure_path, config, out_dir))
+        except ValueError as error:
+            skipped.append((structure_path.stem, str(error)))
+    return written, skipped
 
 
 if __name__ == "__main__":
-    for scf_path, ph_path in generate_inputs_for_all_structures(pbesol_config_for):
+    written, skipped = generate_inputs_for_all_structures(pbesol_config_for)
+    for scf_path, ph_path in written:
         print(f"wrote {scf_path} and {ph_path}")
+    print(f"\nWrote {len(written)} structure(s)' QE inputs.")
+    if skipped:
+        print(f"Skipped {len(skipped)}:")
+        for name, reason in skipped:
+            print(f"  {name}: {reason}")

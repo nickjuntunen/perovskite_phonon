@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=qe-scf
-#SBATCH --partition=normal,owners,rotskoff
+#SBATCH --partition=normal,owners
 #SBATCH --nodes=1
 #SBATCH --ntasks=16
 #SBATCH --cpus-per-task=1
@@ -9,18 +9,25 @@
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
 
-# Runs the pw.x SCF calculation for one structure from data/qe_inputs/.
+# --nodes/--ntasks/--mem/--time above are sized for the common <=80-atom
+# case. scripts/orchestrate_pipeline.py's scf_ph_resource_overrides() passes
+# CLI overrides (which beat these #SBATCH defaults) for larger soft-mode-tilt
+# supercells, spreading more MPI ranks over more nodes rather than asking for
+# a single bigmem node -- see its docstring for why (NaCaCl3_tilted's OOM).
+
+# Runs the pw.x SCF calculation for one structure from
+# $SCRATCH/perovskite_phonon/qe_inputs/.
 # Usage: sbatch --export=ALL,STRUCTURE=CsPbI3 run_scf.sbatch
 # (submit_all.sh does this for you, including chaining to run_ph.sbatch)
 #
 # Listing multiple partitions lets Slurm start the job on whichever of them
 # frees up first; --time is kept <= 2 days so it stays valid on all of them
-# (owners caps at 2 days even though the others allow up to 7). "hns" is
-# deliberately left out: submitting with both rotskoff and hns listed together
-# gets rejected with reason=BadConstraints (verified against this account) --
-# a scheduler-side incompatibility between those two partitions, not a
-# resource-request problem. Submit standalone to hns manually if needed:
-#   sbatch --partition=hns --export=ALL,STRUCTURE=<name> run_scf.sbatch
+# (owners caps at 2 days even though normal allows up to 7). "rotskoff" is
+# deliberately excluded (small owner partition -- shouldn't be monopolized by
+# this batch); "hns" is left out too since submitting with both rotskoff and
+# hns listed together gets rejected with reason=BadConstraints (verified
+# against this account) -- a scheduler-side incompatibility between those two
+# partitions, not a resource-request problem.
 
 set -euo pipefail
 : "${STRUCTURE:?Set STRUCTURE, e.g. sbatch --export=ALL,STRUCTURE=CsPbI3 run_scf.sbatch}"
@@ -34,7 +41,7 @@ ml purge
 ml chemistry
 ml quantum-espresso/7.1
 
-SRC_INPUT_DIR="${PROJECT_ROOT}/data/qe_inputs/${STRUCTURE}"
+SRC_INPUT_DIR="${SCRATCH}/perovskite_phonon/qe_inputs/${STRUCTURE}"
 PSEUDO_DIR="${PROJECT_ROOT}/data/pseudopotentials/pbesol_library"
 RUN_DIR="${SCRATCH}/perovskite_phonon/scf_first/${STRUCTURE}"
 

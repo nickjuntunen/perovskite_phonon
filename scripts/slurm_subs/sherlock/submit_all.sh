@@ -1,10 +1,10 @@
 #!/bin/bash
 # Submit MACE-relax -> SCF -> DFPT job chains on Sherlock for structures in
-# data/qe_inputs/.
+# $SCRATCH/perovskite_phonon/qe_inputs/.
 #
 # Usage:
 #   ./submit_all.sh CsPbI3 NaMgF3     # submit specific structures
-#   ./submit_all.sh --all             # submit every structure in data/qe_inputs/
+#   ./submit_all.sh --all             # submit every structure in $SCRATCH/perovskite_phonon/qe_inputs/
 #                                      # (currently 300+ -- check your allocation
 #                                      # before doing this)
 #
@@ -17,7 +17,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
-QE_INPUTS_DIR="${PROJECT_ROOT}/data/qe_inputs"
+QE_INPUTS_DIR="${SCRATCH}/perovskite_phonon/qe_inputs"
 RELAX_FIRST_DIR="${SCRATCH}/perovskite_phonon/mace_relax_first"
 SCF_FIRST_DIR="${SCRATCH}/perovskite_phonon/scf_first"
 PH_FIRST_DIR="${SCRATCH}/perovskite_phonon/ph_first"

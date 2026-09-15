@@ -6,13 +6,10 @@ an SSSP-style PBEsol pseudopotential set.
 """
 
 import json
-from pathlib import Path
 from upf_tools import UPFDict
 
-
-PSEUDO_ROOT = Path(__file__).resolve().parent.parent / "data" / "pseudopotentials"
-LIBRARY_DIR = PSEUDO_ROOT / "pbesol_library"
-CUTOFFS_PATH = PSEUDO_ROOT / "cutoffs.json"
+from paths import PSEUDO_CUTOFFS_PATH as CUTOFFS_PATH
+from paths import PSEUDO_LIBRARY_DIR as LIBRARY_DIR
 
 _CUTOFFS = json.loads(CUTOFFS_PATH.read_text())
 

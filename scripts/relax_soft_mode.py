@@ -46,6 +46,7 @@ from ase.optimize import LBFGS
 from mace.calculators import mace_mp
 
 from generate_qe_input import QE_INPUTS_DIR, generate_inputs_for_structure, pbesol_config_for
+from paths import TILTED_STRUCTURES_DIR
 from soft_mode_distortion import (
     ModeSeed,
     build_multi_mode_distorted_supercell,
@@ -53,8 +54,6 @@ from soft_mode_distortion import (
     parse_dyn_file,
 )
 from unstable_modes import rank_unstable_modes, top_modes_per_q
-
-TILTED_STRUCTURES_DIR = PROJECT_ROOT / "data" / "tilted_structures"
 
 
 def relax_with_mace(atoms, fmax: float, steps: int):
