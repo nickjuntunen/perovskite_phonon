@@ -97,3 +97,13 @@ def is_open_shell(symbol: str, oxidation_state: int) -> bool:
     non-spin-polarized SCF."""
     unpaired = expected_unpaired_electrons(symbol, oxidation_state)
     return bool(unpaired)
+
+
+def tolerance_factor(r_a: float, r_b: float, r_x: float) -> float:
+    """Goldschmidt tolerance factor t = (r_A + r_X) / (sqrt(2) (r_B + r_X))."""
+    return (r_a + r_x) / (2 ** 0.5 * (r_b + r_x))
+
+
+def octahedral_factor(r_b: float, r_x: float) -> float:
+    """Octahedral factor mu = r_B / r_X."""
+    return r_b / r_x

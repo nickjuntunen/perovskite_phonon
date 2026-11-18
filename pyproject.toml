@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "perovskite-phonon"
+version = "0.1.0"
+description = "DFT/MLIP phonon screening and descriptor-based inverse design of perovskite vibrational spectra"
+requires-python = ">=3.11"
+# Floors are where the code depends on a specific API, not tested minimums:
+# ase.filters.FrechetCellFilter (3.23), phonopy's primitive_matrix="P" and
+# Phonopy.mesh / .qpoints result objects (4.x), icet's ClusterSpace.as_list and
+# generate_sqs_from_supercells (4.x).
+dependencies = [
+    "ase>=3.23",
+    "icet>=4.0",
+    "jinja2",
+    "matplotlib",
+    "mendeleev",
+    "mp-api",
+    "numpy>=1.26",
+    "pandas",
+    "phonopy>=4.0",
+    "pymatgen",
+    "pyrovskite",
+    "requests",
+    "scikit-learn",
+    "scipy",
+    "spglib>=2.0",
+    "upf-tools",
+]
+
+[project.optional-dependencies]
+# MLIP calculators (src/mlip/mlip_calculators.py); heavy, and on Sherlock they come
+# from the CUDA container + group venv rather than from this file.
+# nvalchemi-toolkit-ops is the D3 correction every MLIP calculator gets.
+mlip = ["mace-torch", "nvalchemi-toolkit-ops", "orb-models", "torch"]
+notebook = ["ipykernel", "nbformat", "nbclient"]
+
+[tool.uv]
+# .venv is managed by hand with `uv pip` (installed with `uv pip install -e . --no-deps`).
+# Without this, `uv run` would treat the directory as a uv project: lock the
+# dependencies above and sync .venv to that resolution, re-versioning packages
+# on every run. Switch to true (and run `uv lock`) to move to a lockfile.
+managed = false
+
+[tool.setuptools.packages.find]
+# Only the library. scripts/ are entry points run as files; data/, out/, mnt/ etc.
+# are read by path relative to the repository, which an editable install keeps.
+include = ["src", "src.*"]

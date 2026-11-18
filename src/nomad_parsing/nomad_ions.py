@@ -7,11 +7,11 @@ each one's SMILES charge notation (e.g. "[Pb+2]", "[I-]", "C[NH3+]") into an `Io
 import json
 import re
 import time
-from pathlib import Path
 
 import requests
 
 from ..chemistry import Ion, shannon_ionic_radius
+from ..paths import NOMAD_IONS_PATH
 
 BASE_URL = "http://nomad-lab.eu/prod/v1/api/v1"
 SITE_SECTIONS = {
@@ -22,7 +22,7 @@ SITE_SECTIONS = {
 # Conventional perovskite coordination numbers, used to pick which Shannon
 # radius to report for each site.
 SITE_COORDINATION = {"A": 12, "B": 6, "X": 6}
-CACHE_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "nomad" / "nomad_ions.json"
+CACHE_PATH = NOMAD_IONS_PATH
 
 # NOMAD only allows one in-flight request to this endpoint, with 5s between requests.
 REQUEST_INTERVAL_SECONDS = 5

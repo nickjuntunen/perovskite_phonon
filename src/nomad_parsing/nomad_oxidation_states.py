@@ -12,16 +12,14 @@ and tallies the distinct oxidation states actually declared for each element.
 import json
 import time
 from collections import Counter
-from pathlib import Path
 
 import requests
 
+from ..paths import NOMAD_IONS_PATH
 from .nomad_ions import parse_oxidation_state
 
 BASE_URL = "http://nomad-lab.eu/prod/v1/api/v1"
-CACHE_PATH = (
-    Path(__file__).resolve().parent.parent.parent / "data" / "nomad" / "nomad_b_site_oxidation_states.json"
-)
+CACHE_PATH = NOMAD_IONS_PATH.with_name("nomad_b_site_oxidation_states.json")
 
 # NOMAD rate-limits this endpoint to one in-flight request, with 5s between requests.
 REQUEST_INTERVAL_SECONDS = 5
@@ -110,9 +108,7 @@ def survey_b_site_oxidation_states(elements: list[str], results: dict[str, dict]
 
 
 if __name__ == "__main__":
-    ions_cache = json.loads(
-        (Path(__file__).resolve().parent.parent.parent / "data" / "nomad" / "nomad_ions.json").read_text()
-    )
+    ions_cache = json.loads(NOMAD_IONS_PATH.read_text())
     b_site_elements = sorted(ions_cache["B"])
 
     results = json.loads(CACHE_PATH.read_text()) if CACHE_PATH.exists() else {}
