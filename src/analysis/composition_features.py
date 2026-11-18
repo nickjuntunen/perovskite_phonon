@@ -109,6 +109,45 @@ def electronegativity(symbol: str) -> tuple[float, str] | tuple[None, None]:
     return None, None
 
 
+X_DISORDER_FEATURES = ["x_mix", "mass_cv_X", "r_spread_X", "en_spread_X"]
+
+
+def x_site_disorder(x_frac: "pd.DataFrame") -> "pd.DataFrame":
+    """Halide-mixing descriptors of the X site from its x_frac_<halide>
+    columns (one row per composition), the X-site counterpart of
+    design_descriptors' mass_cv_A/B. All are 0 for a single halide.
+
+        x_mix        1 - sum x_i^2 (Gini-Simpson): 2x(1-x) for a binary mixture
+        mass_cv_X    std / mean of the X-site mass over the mixture
+        r_spread_X   std of the X^- Shannon radius (CN 6), Angstrom
+        en_spread_X  std of the Pauling electronegativity
+
+    Unlike the x_frac columns, these are the same function of x and of the
+    halide contrast for every halide pair, so a model can carry the bowing
+    of one pair's series over to a pair it hasn't seen. Composition-only (no
+    structure), so they can be computed for unrelaxed candidates too."""
+    import pandas as pd
+    from ase.data import atomic_masses, atomic_numbers
+
+    x = x_frac[[f"x_frac_{h}" for h in HALIDES]].fillna(0.0).to_numpy()
+    total = x.sum(axis=1, keepdims=True)
+    w = np.divide(x, total, out=np.zeros_like(x), where=total > 0)
+    out = pd.DataFrame(index=x_frac.index)
+    out["x_mix"] = np.where(total[:, 0] > 0, 1.0 - (w ** 2).sum(axis=1), 0.0)
+    for name, values in (
+        ("mass", np.array([atomic_masses[atomic_numbers[h]] for h in HALIDES])),
+        ("r", np.array([radius(h, -1, 6)[0] for h in HALIDES])),
+        ("en", np.array([electronegativity(h)[0] for h in HALIDES])),
+    ):
+        mean = w @ values
+        std = np.sqrt(np.clip(w @ values ** 2 - mean ** 2, 0.0, None))
+        col = "mass_cv_X" if name == "mass" else f"{name}_spread_X"
+        out[col] = np.divide(std, mean, out=np.zeros_like(std), where=mean > 0) if name == "mass" else std
+    # No halide on the X site (oxides, chalcogenides, ...): 0 too, i.e. one anion,
+    # no mixing. Mixed-anion non-halides (O/N, O/F) aren't resolved by x_frac and read as unmixed.
+    return out
+
+
 @lru_cache(maxsize=None)
 def oxidation_guesses(formula: str, all_oxi_states: bool = False) -> tuple[dict[str, float], ...]:
     try:
