@@ -364,6 +364,28 @@ Each production mixture is one SQS realization. A different cell of the same com
 - For the disorder-limited targets, production would need ensemble averages over several SQS cells before a model could be scored meaningfully along x.
 - **Seed noise vs MLIP noise** on the core targets: ω_log 0.29×, rel_centroid_A 1.02×, rel_width_A 0.78×, shape_pc1 0.59×, rel_centroid_B 1.47×. Disorder noise is comparable to the MLIP noise, and larger for rel_centroid_B.
 
+**How many SQS cells make it negligible?** `scripts/analysis/sqs_convergence.py` → `sqs_convergence.csv`, `sqs_convergence_by_pair.csv` (in the noise check's `analysis/`).
+- **Model:** the error of an N-cell average is σ_seed/√N, with σ_seed from the 5 seeds. "Negligible" means both criteria hold:
+  - σ_seed/√N ≤ ½ × the gauntlet MLIP noise, so disorder adds ≤ 12% to the model noise;
+  - the R²(series) ceiling is ≥ 0.95, against the within-series variance of all production series. That variance is larger than for the 23 noise-check series alone, so these N = 1 ceilings sit above the table above.
+- **N needed**, pooled over compositions, max of the two criteria:
+
+  | N | Targets |
+  |---|---|
+  | 1 | ω_log, S, rel_centroid_X |
+  | 2–4 | Cv, log_k_X, log_k_B, shape_pc2–4 |
+  | 5 | rel_centroid_A, shape_pc1, ω_max, low_enrich_X |
+  | 7 | rel_width_A/B/X |
+  | 9 | rel_centroid_B, high_enrich_B, log_msd_B |
+  | 11–14 | low_enrich_A, log_k_A, log_msd_A/X |
+
+- **Core targets:** ω_log 1, rel_centroid_A 5, shape_pc1 5, rel_width_A 7, rel_centroid_B 9. At N = 5 their ceilings are ≥ 0.94, and only rel_centroid_B's disorder stays above half the MLIP noise (0.65×).
+- **Per pair:** Cl/Br converges fastest, at ≤ 4 cells for most targets. Br/I needs 8–15 for the shape and width targets. Cl/I needs about 20 for the B-site targets.
+- **The 90th-percentile composition** needs 2–3× more. That figure is from 5-seed variances, so it's a conservative bound.
+- **Caveats:**
+  - The 40-atom cells have few distinct arrangements: only 62 of 115 compositions gave 5 distinct cells from 5 seeds. Averaging more seeds than there are distinct cells converges to that cell size's ensemble, not to the random alloy.
+  - Every seed uses the same supercell, so the finite-cell bias is not measured. It needs a larger supercell.
+
 ---
 
 ## 10. Target-space redundancy: which compositions give the same targets?

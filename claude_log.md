@@ -115,6 +115,17 @@ Progress record for Claude Code sessions on this repo (CLAUDE.md points new sess
     - Unlabelled selected polymorphs: 788 → 323 (all without oxidation states).
   - **Venv job 52979192 FAILED** (the GP chain was cancelled). Cause: PyPI `pyrovskite==1.0.0` has no `pyrovskite.data`, which `perovskite_builder.py` imports; the local venv has the GitHub build at commit 3c89f4b. Fixed: `pyproject.toml` and `setup_analysis_venv.sbatch` pin that commit (separate `--no-deps` install). The git install was tested on the login node (pure Python, seconds).
     - **Resubmitted:** venv **52985748** → array **52985751** → summary **52985752**.
+    - **Status 2026-11-19:** venv 52985748 COMPLETED; array 52985751 had 6/9 COMPLETED, 3 RUNNING; summary 52985752 pending.
+- **2026-11-19: SQS convergence** (user request). New `scripts/analysis/sqs_convergence.py` → `data/mixed_halides_noise_check_mp/analysis/sqs_convergence{,_by_pair}.csv`.
+  - N cells needed: σ_seed/√N ≤ ½ MLIP noise and R²(series) ceiling ≥ 0.95, pooled over compositions.
+  - Core targets: ω_log 1, rel_centroid_A 5, shape_pc1 5, rel_width_A 7, rel_centroid_B 9. Widths 7, log_msd/log_k_A/low_enrich_A 11–14.
+  - Br/I and Cl/I need about 2–4× more than Cl/Br. The p90 composition needs 2–3× more (a conservative bound from 5-seed variances).
+  - Only 62/115 compositions gave 5 distinct cells; the finite-cell bias is unmeasured. Details in `descriptor_selection.md` §9.
+- **2026-11-19: prospective proposal set, in progress** (user request). New `scripts/analysis/propose_candidates.py`.
+  - Pool: uncomputed verified MP perovskites within 0.1 eV/atom of the hull, with new formulas: 1,219 structures, 1,135 formulas.
+  - Model: C-tier GP per core target (5; distortion energy left out). Targets: 6 KMeans medoids of the ionic MP rows.
+  - Selection: 8 proposals per target plus 16 random controls; output in `data/proposals/mp_pool_v1/`.
+  - `--retrospective` runs the same procedure with a held-out chemical cluster. Both runs are going locally; results not in yet.
   - Notebook rerun to scratchpad `descriptor_selection_chem.ipynb`: no errors; scorecard, interpolation and noise CSVs bit-identical; chem-cluster η² changes ≤ 0.05.
   - `vdos_by_chem_cluster.py` now skips unlabelled rows; its `astype(int)` would fail on NaN, already true for the old file. Rerun once `mnt/` was back, on 2,439 polymorphs: η² of vDOS variance is chem clusters 0.86 (W2) / 0.89 (log), X anion 0.85 / 0.87, both 0.89 / 0.93, vDOS KMeans 0.93 / 0.92. Chem vs vDOS clusters: ARI 0.36, NMI 0.53. Old outputs backed up in scratchpad `backup_chem_clusters/`.
 - **2026-11-19: mixing energies** (user request): new `scripts/analysis/mixing_energies.py` → `<set>/analysis/mixing_energies.csv`. It computes ΔE_mix vs the end members' MLIP ground states, ideal ΔS_conf, ΔS_vib (exact) and ΔF_vib (quantile quadrature), ΔF_mix(T), and the height above each series' lower hull.
@@ -329,7 +340,7 @@ Earlier parts of this session are summarized from its compaction notes.
 
 ## Goals and key evidence (keep last; rewrite on every update)
 
-*Rewritten 2026-11-19.*
+*Rewritten 2026-11-19 (after the SQS convergence test).*
 
 **Goals.**
 - **Inverse design of perovskite phonons:** choose a design target on the phonon side and determine which compositions yield it.
@@ -345,7 +356,8 @@ Earlier parts of this session are summarized from its compaction notes.
    - Within anion families this is already shown (R²w 0.75–0.96).
    - It is not yet shown along mixed-halide series for an unseen halide pair, where the width and shape targets bow and every model so far is below zero.
    - The X-site disorder features plus the bowing-only target are the test of whether that gap closes.
-   - **Running:** on Sherlock, venv **52985748** (RUNNING as of 2026-11-19) → `gp_disorder.py` array **52985751** → summary **52985752**. Output: `gp_vs_tree/disorder/gp_disorder.csv`.
+   - **Running:** on Sherlock, `gp_disorder.py` array **52985751** (6/9 done, 3 running as of 2026-11-19) → summary **52985752**. Output: `gp_vs_tree/disorder/gp_disorder.csv`.
+   - Related: single-SQS disorder caps how well any model can do along a series. `sqs_convergence.py` puts the fix at about 5–9 cells per composition for the core targets; nothing is running for it.
 2. **Prospective (inverse) validation:** pick target values, let the model propose unseen compositions, compute them, and compare. The first step is MLIP phonons on proposals from a held-out composition cluster; the second is DFPT on the best few, checking MLIP fidelity on tilted cells. This is the only end-to-end evidence; everything so far is cross-validation on MLIP data.
-   - The clusters needed to hold one out now exist (`data/mp_perovskites/composition_clusters.csv`), but no proposal set has been generated.
-   - **None running.** (The zwitterion D3 array 52858514, still pending, widens the candidate pool but doesn't test the inverse map.)
+   - `propose_candidates.py` builds the set: 48 proposals plus 16 controls from 1,219 never-computed MP structures, and a held-out-cluster retrospective check. Both are running locally.
+   - **No MLIP calculation running** for the proposals yet; they need a no-D3 (`+nod3`) array run. The zwitterion D3 array 52858514, still pending, widens the candidate pool but doesn't test the inverse map.
