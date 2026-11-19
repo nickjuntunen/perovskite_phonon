@@ -32,6 +32,27 @@ Usage:
     # cluster the surviving MP perovskites instead, with a PCA plot
     uv run python3 scripts/analysis/cluster_compositions.py --n-clusters 10 \\
         --mp-metadata data/mp_perovskites/metadata_stable.csv
+
+    # the MP chemical clusters the polymorph analysis uses (chem_cluster), from
+    # extract_composition_features.py's table -> data/mp_perovskites/composition_clusters.csv
+    uv run python3 scripts/analysis/cluster_compositions.py --features-csv
+
+--features-csv clusters the rows of a composition_features.csv instead. Its
+oxidation states and radii resolve far more MP entries than --mp-metadata's
+single formula-level guess (which left 788 of the 2,762 selected polymorphs
+unlabelled), and it matches --mp-metadata's values exactly where both
+resolve. KMeans is fitted on the rows with every DESCRIPTOR_NAMES value.
+A row missing a few radii (and so t / mu), but with its oxidation states, is
+assigned to the nearest centroid over the descriptors it has
+(cluster_source = "partial"). Rows with at most --min-observed descriptors
+-- no oxidation state, so no ionic radii: intermetallics and metal-X
+antiperovskites -- stay unlabelled ("none"); an ionic-descriptor cluster
+means nothing for them.
+
+The output is not data/mp_composition_clusters.csv: write_mp_structure_list.py
+and generate_mixed_halides.py --source mp-clusters read that file as the list
+of structures the MP sweep ran, so overwriting it would change what they
+generate.
 """
 
 import argparse
@@ -44,11 +65,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-from src.paths import DATA_DIR
+from src.paths import DATA_DIR, MP_CHEM_CLUSTERS_CSV, MP_COMPOSITION_FEATURES_CSV
 from src.utils.plotting import use_project_style
 from src.analysis.composition_features import DESCRIPTOR_NAMES, descriptor_vector, mp_descriptor_table
 from src.data.perovskite_builder import charge_balanced_abx3
@@ -83,6 +105,44 @@ def plot_pca_clusters(X: np.ndarray, labels: np.ndarray, out_path: Path, title: 
     plt.close(fig)
 
 
+def cluster_feature_table(path: Path, n_clusters: int, random_state: int, min_observed: int,
+                          out_csv: Path, plot_path: Path) -> None:
+    """--features-csv: KMeans on the complete rows of a composition_features.csv,
+    nearest-centroid assignment (over the observed descriptors) for rows with
+    at least min_observed of them, the rest unlabelled."""
+    f = pd.read_csv(path)
+    Z = f[DESCRIPTOR_NAMES].to_numpy(float)
+    observed = ~np.isnan(Z)
+    complete = observed.all(axis=1)
+    scaler = StandardScaler().fit(Z[complete])
+    Z = (Z - scaler.mean_) / scaler.scale_  # NaN stays NaN
+    km = KMeans(n_clusters=n_clusters, n_init=10, random_state=random_state).fit(Z[complete])
+
+    labels = np.full(len(f), -1)
+    labels[complete] = km.labels_
+    partial = ~complete & (observed.sum(axis=1) >= min_observed)
+    for i in np.flatnonzero(partial):
+        o = observed[i]
+        labels[i] = int(np.argmin(((km.cluster_centers_[:, o] - Z[i, o]) ** 2).sum(axis=1)))
+    source = np.where(complete, "fit", np.where(partial, "partial", "none"))
+
+    out = pd.DataFrame({"name": f["name"], "cluster": pd.array(labels, dtype="Int64"),
+                        "cluster_source": source, "n_missing": (~observed).sum(axis=1)})
+    out.loc[out["cluster_source"] == "none", "cluster"] = pd.NA
+    out = pd.concat([out, f[DESCRIPTOR_NAMES]], axis=1)
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    out.to_csv(out_csv, index=False)
+
+    counts = out["cluster_source"].value_counts().to_dict()
+    print(f"Clustered {counts.get('fit', 0)} complete rows of {path} into {n_clusters} groups; "
+          f"{counts.get('partial', 0)} partial rows assigned to the nearest centroid, "
+          f"{counts.get('none', 0)} left unlabelled (< {min_observed} descriptors) -> {out_csv}")
+    print("cluster sizes:", {int(k): int(v) for k, v in out["cluster"].value_counts().sort_index().items()})
+    plot_pca_clusters(Z[complete], km.labels_, plot_path,
+                      title=f"KMeans clusters ({path.name}, complete rows, k={n_clusters})")
+    print(f"Wrote PCA cluster plot -> {plot_path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--n-clusters", type=int, default=10)
@@ -91,7 +151,9 @@ def main() -> None:
         help="scripts/analysis/score_vdos.py's output CSV, to cross-reference clusters against vDOS-target fitness",
     )
     parser.add_argument("--top-n", type=int, default=15, help="How many top-fitness structures to report cluster membership for")
-    parser.add_argument("--out-csv", type=Path, default=DATA_DIR / "composition_clusters.csv")
+    parser.add_argument("--out-csv", type=Path, default=None,
+                        help="Default: data/composition_clusters.csv, or data/mp_perovskites/composition_clusters.csv "
+                             "with --features-csv")
     parser.add_argument("--random-state", type=int, default=0)
     parser.add_argument(
         "--mp-metadata", type=Path, default=None,
@@ -101,10 +163,25 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--features-csv", type=Path, nargs="?", const=MP_COMPOSITION_FEATURES_CSV, default=None,
+        help="Cluster a composition_features.csv (default with no value: the MP one) -- see the docstring",
+    )
+    parser.add_argument("--min-observed", type=int, default=10,
+                        help="--features-csv: descriptors (of 14) a partial row needs to be assigned (default 10: "
+                             "oxidation states resolved, at most a few radii missing)")
+    parser.add_argument(
         "--plot-path", type=Path, default=None,
         help="Where to save the 2-PC cluster scatter plot (default: alongside --out-csv, same stem + _pca.png)",
     )
     args = parser.parse_args()
+    if args.out_csv is None:
+        args.out_csv = MP_CHEM_CLUSTERS_CSV if args.features_csv else DATA_DIR / "composition_clusters.csv"
+
+    if args.features_csv is not None:
+        plot_path = args.plot_path or args.out_csv.with_name(args.out_csv.stem + "_pca.png")
+        cluster_feature_table(args.features_csv, args.n_clusters, args.random_state, args.min_observed,
+                              args.out_csv, plot_path)
+        return
 
     if args.mp_metadata is not None:
         names, vectors, skipped = mp_descriptor_table(args.mp_metadata)

@@ -55,6 +55,11 @@ def main() -> None:
     args = parser.parse_args()
 
     df = pd.read_csv(args.clusters_csv)
+    # cluster_compositions.py leaves rows with no ionic descriptors (no oxidation state) unlabelled
+    unlabelled = df["chem_cluster"].isna()
+    if unlabelled.any():
+        print(f"leaving out {unlabelled.sum()} polymorphs without a chemical cluster")
+        df = df[~unlabelled].reset_index(drop=True)
     spectra = [load_vdos(args.root / d) for d in df["dir"]]
     spectra = [(f, d / np.trapezoid(d, f)) for f, d in spectra]
     # / sqrt(n_levels): Euclidean distance between these rows is then W2 itself (a mean over levels)

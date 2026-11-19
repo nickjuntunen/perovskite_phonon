@@ -27,7 +27,14 @@ MP_METADATA = MP_DIR / "metadata.csv"  # fetch_mp_perovskites.py
 MP_METADATA_VERIFIED = MP_DIR / "metadata_verified.csv"  # verify_mp_perovskites.py
 MP_METADATA_STABLE = MP_DIR / "metadata_stable.csv"  # filter_stable_mp_perovskites.py
 MP_QE_INPUTS_DIR = DATA_DIR / "mp_qe_inputs"
+# The MP structure list the sweep ran (write_mp_structure_list.py, generate_mixed_halides.py
+# --source mp-clusters read it as a membership list); its 2026-09 KMeans labels are superseded
+# by MP_CHEM_CLUSTERS_CSV
 MP_COMPOSITION_CLUSTERS_CSV = DATA_DIR / "mp_composition_clusters.csv"
+MP_COMPOSITION_FEATURES_CSV = MP_DIR / "composition_features.csv"  # extract_composition_features.py
+# Chemical (composition) clusters: cluster_compositions.py --features-csv; select_stable_polymorphs.py
+# attaches them as `cluster` (chem_cluster downstream)
+MP_CHEM_CLUSTERS_CSV = MP_DIR / "composition_clusters.csv"
 
 # MLIP phonons
 MLIP_PHONONS_DIR = DATA_DIR / "mlip_phonons"  # run_mlip_phonons.py default --out-root

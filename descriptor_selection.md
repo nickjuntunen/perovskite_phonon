@@ -155,7 +155,7 @@ For mixed halides there is a second noise source, the choice of SQS cell. Sectio
 
 **Result.** The absolute targets are **78–87% anion**: ω_log, ω_max, Cv, S, all `log_k_*` and all `log_msd_*`. The scale-free targets are mostly *not* anion: `rel_centroid_A` 0.28, `rel_width_A` 0.09, `shape_pc1` 0.19, `log_distortion_energy` 0.16, `soft_mode_depth` 0.03. That's the design-relevant variation.
 
-The composition-cluster η² is computed on a stale clustering: `data/mp_composition_clusters.csv` (2026-09-17) has no label for 788 of the 2,762 polymorphs. See Caveats.
+The composition clusters are `cluster_compositions.py --features-csv` (2026-11-19), KMeans k=10 on the C descriptors. They label all but 323 of the 2,762 polymorphs; the unlabelled ones have no oxidation state. Cluster η² is 0.86–0.94 for the absolute targets and 0.12–0.57 for the scale-free ones. Regenerating the clusters from the 2026-09 set, which left 788 unlabelled, moved no value by more than 0.05.
 
 ### Test 3: Redundancy (Spearman ρ, participation ratio)
 
@@ -389,13 +389,40 @@ Each production mixture is one SQS realization. A different cell of the same com
 
 ---
 
+## 11. Mixing energies: which mixtures would actually form?
+
+`scripts/analysis/mixing_energies.py` writes `<set>/analysis/mixing_energies.csv`, one row per SQS run. With x the X2 share of the X site, taken from the cell's actual formula:
+
+- ΔE_mix = E(mix) − (1−x)·E(X1 end) − x·E(X2 end), the MLIP static energy in meV/atom. Mixtures and end members have the same atoms per formula unit, so per-atom energies compare directly.
+- Each end member's reference is its lowest-energy dynamically stable state over all MP entries of its formula. A second column uses the specific MP entry the mixture was built from; the two agree to within 0.1 meV/atom for every stable row.
+- ΔF_mix(T) = ΔE_mix + ΔF_vib − T·ΔS_conf.
+  - ΔS_conf = −f_X[x ln x + (1−x) ln(1−x)] is the ideal random-alloy entropy, with f_X = 3/5 X sites per atom.
+  - ΔF_vib is the harmonic vibrational free energy (including zero point), integrated over the saved vDOS quantile functions. The same quadrature reproduces the exact ΔS_vib to a median of 0.0002 k_B/atom.
+- Along each series, the height above the lower convex hull (end members at 0) says whether a mixture would decompose into its neighbours.
+
+Production set, 689 dynamically stable mixtures with both references (meV/atom, 300 K):
+
+| Pair | n | ΔE_mix median | ΔE_mix > 0 | T·ΔS_conf median | ΔF_vib median | ΔF_mix < 0 | On the ΔF hull |
+|---|---|---|---|---|---|---|---|
+| Cl/Br | 390 | 5.2 | 96% | 9.9 | −0.6 | 99% | 71% |
+| Br/I | 155 | 6.7 | 92% | 9.9 | −0.1 | 85% | 57% |
+| Cl/I | 144 | 22.7 | 100% | 9.9 | −1.2 | 6% | 5% |
+
+- Nearly every mixture costs energy at 0 K, scaling with the halide size mismatch. At 300 K, configurational entropy stabilizes most Cl/Br and Br/I mixtures, but almost no Cl/I ones: those would phase-separate. That's consistent with the size-mismatch screen in `generate_mixed_halides.py` (median radius mismatch Cl/I 0.22, Br/I 0.12, Cl/Br 0.08).
+- Vibrational entropy helps slightly (mixtures are softer), but it is about 9× smaller than T·ΔS_conf (median ratio).
+- **SQS seed spread** (noise-check set, 115 compositions): the std of ΔE_mix is 0.7 meV/atom median, 3.6 at p90. That's small against the Cl/I values, comparable to the Cl/Br margin.
+- **ΔE_mix < 0 mostly flags a bad reference**, not favourable mixing. In 19 of 689 rows it is below −2 meV/atom, mostly at x = 0.83 with a single minority halide. There, the rattled 40-atom SQS cell found a distortion the 10-atom end-member cell can't hold. For example, Rb₂AgAuBr₆ is counted as stable in Fm-3m at −0.98 cm⁻¹, inside the 1 cm⁻¹ tolerance. The CSV carries the cell sizes and states, so these rows can be filtered.
+- For design, ΔF_mix(300 K) and its hull height act as a filter: a proposed mixed composition is only useful if it doesn't phase-separate.
+
+---
+
 ## Caveats and next step
 
 - **All data is MLIP.** The noise floor measures disagreement between models, not error against DFT. Only Cv and S have a DFPT comparison, and only on five cubic cells.
 - **No dispersion correction.** Every dataset here was computed without DFT-D3. The pipeline now adds D3(BJ) by default (2026-11-18), with a `-D3BJ-<xc>` output label; `+nod3` turns it off. New runs aren't comparable with these unless D3 is switched off. D3 visibly softens tilt instabilities: with D3, cubic CsPbBr₃ is only −3.4 cm⁻¹ unstable, and its soft-mode step reaches Cm with no energy gain rather than a tilted phase.
 - **68% of the MP polymorphs come from "theoretical" entries.**
 - **Formula-grouped CV may still be optimistic.** Closely related double perovskites (single-site substitutions) can fall on both sides of a split. Grouping by composition cluster would be stricter.
-- **The composition clusters are stale.** `cluster_compositions.py --mp-metadata` still builds its own per-site descriptors, and the 2026-09-17 run left 788 polymorphs unlabelled. Regenerating them from `composition_features.csv`, which has a row for every polymorph, would fix the chem-cluster η² and enable cluster-grouped CV.
+- **Composition clusters** now cover every polymorph with an ionic picture. That makes cluster-grouped CV (above) possible, but it isn't implemented yet.
 - **Mixed halides:** single SQS cells limit the width and MSD targets (Section 9). No model predicts the bowing for an unseen halide pair yet (Section 8).
 - **Inverse design can target about 4–5 numbers, not a full spectrum.** Spectral shape beyond PC1 is only weakly predictable from these descriptors.
 

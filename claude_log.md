@@ -104,6 +104,20 @@ Progress record for Claude Code sessions on this repo (CLAUDE.md points new sess
     - `install_d3.sbatch` (job 52858500, worked) is also in the repo now.
     - **Resubmitted** from the repo scripts: venv **52979192** → array **52979195** → summary **52979199**. The scratch copies of both one-off scripts were removed.
 - **2026-11-19: `descriptor_selection.md` rewritten** to the 2026-11-18 notebook numbers: 2,657 MP polymorphs, PR 4.6, and the updated scorecard and held-out-anion table. New sections: §7 mixed halides, §8 GP vs trees, §9 SQS disorder noise, §10 target-space redundancy. Caveats on no-D3 data and on the stale chem clusters. The Test 6 attribution table is carried over from the 1,984-polymorph run, unverified.
+- **2026-11-19: chemical clusters regenerated** (user request).
+  - `cluster_compositions.py --features-csv` clusters `data/mp_perovskites/composition_features.csv`. It writes the new `data/mp_perovskites/composition_clusters.csv` (`MP_CHEM_CLUSTERS_CSV`).
+    - KMeans k=10 is fitted on the 3,305 complete rows. 122 rows missing 2–4 radii are assigned to the nearest centroid over the descriptors they have. 522 rows with no oxidation state stay unlabelled.
+    - ARI vs the old labels on the 2,759 shared rows: 0.93, with labels renumbered.
+  - The old `data/mp_composition_clusters.csv` is untouched: `write_mp_structure_list.py` and `generate_mixed_halides.py` read it as the sweep's structure list.
+  - `select_stable_polymorphs.py` now attaches the new file when it exists. New `--reattach-clusters` swaps only the cluster, t and μ columns of `candidates.csv`, `stable_polymorphs.csv` and `polymorph_clusters.csv` in place. It needs no `mnt/`, which was unmounted (I/O error).
+    - Ran it: all other columns are bit-identical (round-trip floats); t and μ are identical where they existed. Backups in scratchpad `backup_chem_clusters/`.
+    - Unlabelled selected polymorphs: 788 → 323 (all without oxidation states).
+  - Notebook rerun to scratchpad `descriptor_selection_chem.ipynb`: no errors; scorecard, interpolation and noise CSVs bit-identical; chem-cluster η² changes ≤ 0.05.
+  - `vdos_by_chem_cluster.py` now skips unlabelled rows; its `astype(int)` would fail on NaN, already true for the old file. Not rerun: it needs `mnt/`.
+- **2026-11-19: mixing energies** (user request): new `scripts/analysis/mixing_energies.py` → `<set>/analysis/mixing_energies.csv`. It computes ΔE_mix vs the end members' MLIP ground states, ideal ΔS_conf, ΔS_vib (exact) and ΔF_vib (quantile quadrature), ΔF_mix(T), and the height above each series' lower hull.
+  - **Production:** 689 stable rows. Median ΔE_mix: Cl/Br 5.2, Br/I 6.7, Cl/I 22.7 meV/atom. ΔF_mix(300 K) < 0 for 99% / 85% / 6%.
+  - **Noise check:** SQS seed std of ΔE_mix is 0.74 median, 3.6 p90.
+  - 19/689 rows have ΔE_mix < −2: the end-member reference is not the ground state (the rattled 40-atom SQS cell finds distortions the 10-atom end-member cell can't). Documented in the docstring and in `descriptor_selection.md` §11.
 
 ## 2026-11-17: target-space clustering (redundant compositions)
 
@@ -300,8 +314,8 @@ Earlier parts of this session are summarized from its compaction notes.
   - hyperparameter tuning;
   - a two-stage model (composition → geometry → phonons);
   - stoichiometry-weighted site averages for MP.
-- Regenerate `chem_cluster`. Status 2026-11-19: the pipeline exists (`cluster_compositions.py --mp-metadata` → `data/mp_composition_clusters.csv` → `select_stable_polymorphs.py` → `cluster_polymorphs.py`, which renames it to `chem_cluster`). But it builds its own per-site descriptors (`mp_descriptor_table`), which left 788/2,762 polymorphs unlabelled. Rerunning it as is would reproduce the gaps. It needs to cluster from `composition_features.csv` instead, which has a row for all 788.
-- Mixing energies: **not started.** No code computes ΔE_mix. Only the reference bookkeeping exists: `reference_status` in `src/structure_gen/io.py`, and `compositions.csv` of `generate_mixed_halides.py`.
+- ~~Regenerate `chem_cluster`.~~ Done 2026-11-19 (`cluster_compositions.py --features-csv`, `select_stable_polymorphs.py --reattach-clusters`).
+- ~~Mixing energies.~~ Done 2026-11-19: `scripts/analysis/mixing_energies.py`.
 - The failed and still-imaginary mixed structures.
 - ~~The DOS memory fix in Sherlock's `run_mlip_phonons.py`.~~ Done: ported as `--mesh-length` / `_dos_mesh` in the 2026-11-18 merge.
 - ~~Merge the Sherlock code back into the local tree.~~ Done 2026-11-18.
