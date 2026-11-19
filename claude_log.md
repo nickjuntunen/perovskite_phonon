@@ -103,6 +103,7 @@ Progress record for Claude Code sessions on this repo (CLAUDE.md points new sess
     - Fix: `scripts/jobs/sherlock/setup_analysis_venv.sbatch` (now in the repo) installs with `--only-binary=:all:`. The pins are the newest versions with glibc-2.17 wheels: numpy 2.2.6, pandas 2.3.2, scipy 1.16.3, scikit-learn 1.7.2, matplotlib 3.11.2, mendeleev 1.3.0, pymatgen 2026.10.24. It rebuilds the venv from scratch and writes `requirements.lock` into it.
     - `install_d3.sbatch` (job 52858500, worked) is also in the repo now.
     - **Resubmitted** from the repo scripts: venv **52979192** → array **52979195** → summary **52979199**. The scratch copies of both one-off scripts were removed.
+- **2026-11-19: `descriptor_selection.md` rewritten** to the 2026-11-18 notebook numbers: 2,657 MP polymorphs, PR 4.6, and the updated scorecard and held-out-anion table. New sections: §7 mixed halides, §8 GP vs trees, §9 SQS disorder noise, §10 target-space redundancy. Caveats on no-D3 data and on the stale chem clusters. The Test 6 attribution table is carried over from the 1,984-polymorph run, unverified.
 
 ## 2026-11-17: target-space clustering (redundant compositions)
 
@@ -287,7 +288,7 @@ Earlier parts of this session are summarized from its compaction notes.
    - extract descriptors over `mnt/`;
    - average.
 
-   Then re-run the notebook; its noise section turns on by itself.
+   Then re-run the notebook; its noise section turns on by itself. **Done 2026-11-18** (see that entry). The notebook is `descriptor_selection.ipynb`.
 2. Depending on the result:
    - If the width and shape targets turn out to be disorder-limited, switch production to ensemble averages for those targets.
    - Otherwise, look at end-member polymorph mismatch.
@@ -299,10 +300,10 @@ Earlier parts of this session are summarized from its compaction notes.
   - hyperparameter tuning;
   - a two-stage model (composition → geometry → phonons);
   - stoichiometry-weighted site averages for MP.
-- Regenerate `chem_cluster`.
-- Mixing energies.
+- Regenerate `chem_cluster`. Status 2026-11-19: the pipeline exists (`cluster_compositions.py --mp-metadata` → `data/mp_composition_clusters.csv` → `select_stable_polymorphs.py` → `cluster_polymorphs.py`, which renames it to `chem_cluster`). But it builds its own per-site descriptors (`mp_descriptor_table`), which left 788/2,762 polymorphs unlabelled. Rerunning it as is would reproduce the gaps. It needs to cluster from `composition_features.csv` instead, which has a row for all 788.
+- Mixing energies: **not started.** No code computes ΔE_mix. Only the reference bookkeeping exists: `reference_status` in `src/structure_gen/io.py`, and `compositions.csv` of `generate_mixed_halides.py`.
 - The failed and still-imaginary mixed structures.
-- The DOS memory fix in Sherlock's `run_mlip_phonons.py`.
-- Merge the Sherlock code back into the local tree.
-- Update `descriptor_selection.md`.
-- Commit the new work.
+- ~~The DOS memory fix in Sherlock's `run_mlip_phonons.py`.~~ Done: ported as `--mesh-length` / `_dos_mesh` in the 2026-11-18 merge.
+- ~~Merge the Sherlock code back into the local tree.~~ Done 2026-11-18.
+- ~~Update `descriptor_selection.md`.~~ Done 2026-11-19 (Sections 7–10, current numbers).
+- ~~Commit the new work.~~ Done 2026-11-18/19.
