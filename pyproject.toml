@@ -22,7 +22,8 @@ dependencies = [
     "pandas",
     "phonopy>=4.0",
     "pymatgen",
-    "pyrovskite",
+    # PyPI pyrovskite 1.0.0 lacks pyrovskite.data (src/data/perovskite_builder.py imports it)
+    "pyrovskite @ git+https://github.com/r2stanton/pyrovskite.git@3c89f4b55308bff6230178d3168af5b876611a52",
     "requests",
     "scikit-learn",
     "scipy",
