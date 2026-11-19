@@ -113,8 +113,9 @@ Progress record for Claude Code sessions on this repo (CLAUDE.md points new sess
     - Ran it: all other columns are bit-identical (round-trip floats); t and μ are identical where they existed. Backups in scratchpad `backup_chem_clusters/`.
     - Unlabelled selected polymorphs: 788 → 323 (all without oxidation states).
   - **Venv job 52979192 FAILED** (the GP chain was cancelled). Cause: PyPI `pyrovskite==1.0.0` has no `pyrovskite.data`, which `perovskite_builder.py` imports; the local venv has the GitHub build at commit 3c89f4b. Fixed: `pyproject.toml` and `setup_analysis_venv.sbatch` pin that commit (separate `--no-deps` install). The git install was tested on the login node (pure Python, seconds).
+    - **Resubmitted:** venv **52985748** → array **52985751** → summary **52985752**.
   - Notebook rerun to scratchpad `descriptor_selection_chem.ipynb`: no errors; scorecard, interpolation and noise CSVs bit-identical; chem-cluster η² changes ≤ 0.05.
-  - `vdos_by_chem_cluster.py` now skips unlabelled rows; its `astype(int)` would fail on NaN, already true for the old file. Not rerun: it needs `mnt/`.
+  - `vdos_by_chem_cluster.py` now skips unlabelled rows; its `astype(int)` would fail on NaN, already true for the old file. Rerun once `mnt/` was back, on 2,439 polymorphs: η² of vDOS variance is chem clusters 0.86 (W2) / 0.89 (log), X anion 0.85 / 0.87, both 0.89 / 0.93, vDOS KMeans 0.93 / 0.92. Chem vs vDOS clusters: ARI 0.36, NMI 0.53. Old outputs backed up in scratchpad `backup_chem_clusters/`.
 - **2026-11-19: mixing energies** (user request): new `scripts/analysis/mixing_energies.py` → `<set>/analysis/mixing_energies.csv`. It computes ΔE_mix vs the end members' MLIP ground states, ideal ΔS_conf, ΔS_vib (exact) and ΔF_vib (quantile quadrature), ΔF_mix(T), and the height above each series' lower hull.
   - **Production:** 689 stable rows. Median ΔE_mix: Cl/Br 5.2, Br/I 6.7, Cl/I 22.7 meV/atom. ΔF_mix(300 K) < 0 for 99% / 85% / 6%.
   - **Noise check:** SQS seed std of ΔE_mix is 0.74 median, 3.6 p90.
