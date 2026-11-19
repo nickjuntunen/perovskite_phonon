@@ -102,6 +102,7 @@ Progress record for Claude Code sessions on this repo (CLAUDE.md points new sess
     - Cause: Sherlock is CentOS 7 (glibc 2.17). numpy 2.5.2 has no manylinux2014 wheel, so pip built it from source, and the system assembler rejects `endbr64`.
     - Fix: `scripts/jobs/sherlock/setup_analysis_venv.sbatch` (now in the repo) installs with `--only-binary=:all:`. The pins are the newest versions with glibc-2.17 wheels: numpy 2.2.6, pandas 2.3.2, scipy 1.16.3, scikit-learn 1.7.2, matplotlib 3.11.2, mendeleev 1.3.0, pymatgen 2026.10.24. It rebuilds the venv from scratch and writes `requirements.lock` into it.
     - `install_d3.sbatch` (job 52858500, worked) is also in the repo now.
+    - **Resubmitted** from the repo scripts: venv **52979192** → array **52979195** → summary **52979199**. The scratch copies of both one-off scripts were removed.
 
 ## 2026-11-17: target-space clustering (redundant compositions)
 
