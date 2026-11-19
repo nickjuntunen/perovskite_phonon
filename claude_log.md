@@ -45,9 +45,63 @@ Progress record for Claude Code sessions on this repo (CLAUDE.md points new sess
     - `test_mlip_mp_smoke.sbatch`, adapted to the D3 suffixes: MODEL_PATH stripping, and the label via `model_label`.
   - **Not copied:** `sourceme.sh` (environment, not in git).
   - **Tested locally** on CsPbBr3 with MACE-matpes `+nod3`, 2×2×2: a fresh run, then `--reuse-fc`, which gives `force_constants_reused: true`.
+- **Commit:** `caf4727` on the new branch `merge-sherlock-refactor`, not pushed.
+  - `pubchem_*.parquet` and `pubchem_*.csv` were added to `.gitignore`.
+  - `get_sh_molecules.ipynb` outputs were cleared; there were 23 MB in cell 1.
+- **D3 deployed to Sherlock** (user request):
+  - Backup of the old Sherlock code: `$GROUP_HOME/nick/perovskite_phonon_code_backup_20261118.tar.gz`.
+  - Synced the code, the top-level tracked files and `.git`. Sherlock's checkout is now exactly `caf4727` plus `sourceme.sh`. The only deletions were the moved `src/visualize.py` and `src/phonon_benchmark.py`.
+  - **Zwitterions:** the user chose to redo all 90 with D3.
+    - Cancelled pending tasks 52692210_[3-14].
+    - The 18 no-D3 results stay in `mlip_phonons_zwitterions/MACE-matpes-r2scan-omat-ft/`.
+  - **Job chain:**
+
+    | Job | Name | What | Dependency |
+    |---|---|---|---|
+    | 52857069 | `install-d3` | owners/normal, 30 min. pip installs `nvalchemi-toolkit-ops==0.3.1` and `warp-lang==1.17.0` in the venv, builds `~/.cache/nvalchemiops/dftd3_parameters.pt`, and checks E_D3(cubic CsPbBr3, r2scan) = −0.407128 eV against local. Script: `$SCRATCH/perovskite_phonon/jobs/install_d3.sbatch`. | — |
+    | 52857094 | `mlip-mp-smoke` | `test_mlip_mp_smoke.sbatch` with the default model, so D3 r2scan | afterok:52857069 |
+    | 52857102 | `mlip-zw-d3` | `--array=0-14`, `NUM_TASKS=15`, `--mem=64G`, 6 h. Output in `mlip_phonons_zwitterions/MACE-matpes-r2scan-omat-ft-D3BJ-r2scan/`. | afterok:52857094 |
+
+  - If any job in the chain fails, the ones after it never start (DependencyNeverSatisfied): find the cause, then scancel them.
+  - **First attempt failed.** 52857069 FAILED after 8 s. The install script's `set -e` was active while sourcing `sourceme.sh`, whose `find` exits nonzero on an absent `nvidia/cuda_nvrtc`. Slurm cancelled 52857094 and 52857102 itself.
+    - Fixed: `set +eo pipefail` around the source, as the array sbatch does.
+    - **Resubmitted:** install **52858500** → smoke **52858505** → `mlip-zw-d3` **52858514**. Same settings as before.
 - **SQS noise check:**
   - 528/529 realizations finished. The exception is `nc-sqs4-1x1x1_Cs2NaIn(BrCl)3`, which fails deterministically with "Failed to recognize lattice" (ASE bandpath) after its force constants are saved.
   - Post-processing: the three steps from `sqs_ensemble_average.py`'s docstring, with production's default `--imag-tol 1`. Log: `data/mixed_halides_noise_check_mp/analysis/postprocess.log`.
+  - **Done** (23 min, 0 failures): 855 states from 528 runs, 115 compositions. 509 of 528 realizations are stable; stable realizations per composition: {2: 2, 3: 9, 4: 42, 5: 62}.
+  - The notebook ran to `<scratchpad>/descriptor_selection_run.ipynb`; the user's copy is unchanged. It wrote `data/mlip_stable_polymorphs/descriptor_sqs_noise.csv`.
+  - `sqs0_repro` = 0 for every target, so the noise-check seed 0 reproduces production.
+  - **Ceilings on R²(series):**
+    - ≥ 0.96: rel_centroid_X, cv, ω_log, S, log_k_X.
+    - 0.85–0.93: low_enrich_A/X, shape_pc1–4, log_k_B, high_enrich_B, rel_centroid_A/B.
+    - Disorder-limited (SNR_series ≤ 1.9): ω_max 0.73, rel_width_X 0.77, rel_width_A 0.62, rel_width_B 0.67, log_msd_A/B/X 0.35–0.62, log_k_A 0.28.
+  - Re-scoring against the ensemble mean barely changes any model's R². Where models fall short, the x-dependence is unlearned, not drowned in noise; most targets have models well below their ceiling.
+  - GP beats trees and linear on almost every target.
+  - **Core targets, seed noise vs gauntlet MLIP noise:** ω_log 0.29×, rel_centroid_A 1.02×, rel_width_A 0.78×, shape_pc1 0.59×, rel_centroid_B 1.47×. So single-SQS noise doesn't swamp the MLIP-noise units of `cluster_targets.py`, except it inflates rel_centroid_B.
+
+- **D3 chain result:**
+  - Install **52858500** COMPLETED. E_D3(CsPbBr3) = −0.407128 eV matches local, and the cache was built.
+  - Smoke **52858505** PASSED: BaSnO3, Ba2MgWO6 and CsPbBr3, label `-D3BJ-r2scan`.
+  - Note: with D3, cubic CsPbBr3 is only −3.4 cm⁻¹ unstable. The soft-mode step reached Cm at +0.00 meV/atom with −7.1 cm⁻¹ left, not a tilted phase. D3 visibly softens the tilt instability; compare with no-D3 before trusting either.
+  - The zwitterion D3 array **52858514** is now released and queued.
+- **Why the models fail along series** (diagnostic, trees, production mixed set):
+  - Within-series std is 0.2–0.47 of the total.
+  - The poor targets bow: a line fits 42–63%, a quadratic 85–91%.
+  - Held-out pair is much worse than held-out series (rel_centroid_B 0.51 → −0.60).
+  - The C tier has no X-site disorder feature.
+- **Experiment for it:**
+  - `src/analysis/composition_features.py`: `x_site_disorder()` and `X_DISORDER_FEATURES` (x_mix = 1−Σx², mass_cv_X, r_spread_X, en_spread_X), from x_frac only.
+  - `gp_vs_tree/gp_disorder.py`: 9 targets × {base, +dis, +dis with the bowing-only Δ target} × {held-out pair, GroupKFold(5) series} × {GP, tree}, checkpointed.
+  - The quick local test reproduces the notebook's linear R²(series) for rel_centroid_A (0.1868).
+  - `scripts/jobs/sherlock/run_gp_disorder.sbatch` (array 0–8, 16 CPU, 12 h, requeue).
+  - Its environment is a new analysis venv, `$GROUP_HOME/nick/python_venvs/perovskite_analysis` (python/3.12.1 module, pinned to local versions), built by `$SCRATCH/perovskite_phonon/jobs/setup_analysis_venv.sbatch`.
+  - Inputs copied to new Sherlock paths: `data/mlip_stable_polymorphs/` (4 files), `data/mp_perovskites/composition_features.csv`, `data/mixed_halides/analysis/` (4 files), `data/nomad/nomad_ions.json`.
+  - **Jobs:** venv **52863595** → array **52863609** → summary **52863615**. Output: `~/perovskite_phonon/gp_vs_tree/disorder/gp_disorder.csv` on Sherlock.
+  - **2026-11-19: venv job 52863595 FAILED** (12 min); Slurm cancelled the array and the summary.
+    - Cause: Sherlock is CentOS 7 (glibc 2.17). numpy 2.5.2 has no manylinux2014 wheel, so pip built it from source, and the system assembler rejects `endbr64`.
+    - Fix: `scripts/jobs/sherlock/setup_analysis_venv.sbatch` (now in the repo) installs with `--only-binary=:all:`. The pins are the newest versions with glibc-2.17 wheels: numpy 2.2.6, pandas 2.3.2, scipy 1.16.3, scikit-learn 1.7.2, matplotlib 3.11.2, mendeleev 1.3.0, pymatgen 2026.10.24. It rebuilds the venv from scratch and writes `requirements.lock` into it.
+    - `install_d3.sbatch` (job 52858500, worked) is also in the repo now.
 
 ## 2026-11-17: target-space clustering (redundant compositions)
 
