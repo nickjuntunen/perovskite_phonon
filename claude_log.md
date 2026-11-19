@@ -7,6 +7,7 @@ Progress record for Claude Code sessions on this repo (CLAUDE.md points new sess
 - Write facts verified in the session; mark anything not checked as such.
 - Keep standing constraints (Sherlock policy, workflow rules) in the section below, not in entries.
 - At the end of a session, add an entry or update the current one before stopping.
+- The last section is always "## Goals and key evidence (keep last; rewrite on every update)" (CLAUDE.md). New entries go above it; rewrite it on every update of this file.
 
 ## Standing constraints
 
@@ -323,3 +324,28 @@ Earlier parts of this session are summarized from its compaction notes.
 - ~~Merge the Sherlock code back into the local tree.~~ Done 2026-11-18.
 - ~~Update `descriptor_selection.md`.~~ Done 2026-11-19 (Sections 7–10, current numbers).
 - ~~Commit the new work.~~ Done 2026-11-18/19.
+
+---
+
+## Goals and key evidence (keep last; rewrite on every update)
+
+*Rewritten 2026-11-19.*
+
+**Goals.**
+- **Inverse design of perovskite phonons:** choose a design target on the phonon side and determine which compositions yield it.
+  - The targets are about five learnable descriptors (`descriptor_selection.md` §6): frequency scale, A-site rattling, B–X stretching separation, B-sublattice weight and lattice instability.
+  - The candidates are ABX₃ and double perovskites, including mixed halides and the widened chemistry (zwitterions).
+- **Redundancy:** find the distinct chemistries that reach the same target (`cluster_targets.py`).
+- **Feasibility:** the proposed compositions must actually form. That means dynamically stable and, for mixtures, not phase-separating (`mixing_energies.py`).
+- Later: electron–phonon coupling.
+
+**The two pieces of information most likely to settle it:**
+
+1. **Whether the forward model is accurate where the inverse search will query it**, i.e. for compositions outside the training set.
+   - Within anion families this is already shown (R²w 0.75–0.96).
+   - It is not yet shown along mixed-halide series for an unseen halide pair, where the width and shape targets bow and every model so far is below zero.
+   - The X-site disorder features plus the bowing-only target are the test of whether that gap closes.
+   - **Running:** on Sherlock, venv **52985748** (RUNNING as of 2026-11-19) → `gp_disorder.py` array **52985751** → summary **52985752**. Output: `gp_vs_tree/disorder/gp_disorder.csv`.
+2. **Prospective (inverse) validation:** pick target values, let the model propose unseen compositions, compute them, and compare. The first step is MLIP phonons on proposals from a held-out composition cluster; the second is DFPT on the best few, checking MLIP fidelity on tilted cells. This is the only end-to-end evidence; everything so far is cross-validation on MLIP data.
+   - The clusters needed to hold one out now exist (`data/mp_perovskites/composition_clusters.csv`), but no proposal set has been generated.
+   - **None running.** (The zwitterion D3 array 52858514, still pending, widens the candidate pool but doesn't test the inverse map.)
