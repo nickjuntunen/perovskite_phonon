@@ -1,0 +1,19 @@
+{
+ "target": "shape_pc1",
+ "pair linear": -2.768591102831809,
+ "pair base GP": -0.0830297480896891,
+ "pair base tree": -1.0386568528058224,
+ "pair dis GP": -0.03938730856934125,
+ "pair dis tree": -1.084779742941135,
+ "pair dis_delta GP": -3.5355464916136308,
+ "pair dis_delta tree": -1.0282248952094921,
+ "series linear": -2.768591102831809,
+ "series base GP": 0.36431747120775004,
+ "series base tree": -0.4758583435381811,
+ "series dis GP": 0.351215658415434,
+ "series dis tree": -0.4950962895660629,
+ "series dis_delta GP": -8.751772041416608,
+ "series dis_delta tree": 0.030618511793764958,
+ "n_scored": 672,
+ "sec": 1006.8943734169006
+}

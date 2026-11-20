@@ -335,7 +335,39 @@ Medians over 23 targets:
 - With mixtures in training, the GP's smooth interpolation pays off. On the held-out pair, s_300K and ω_log reach 0.95, matching the linear baseline. The GP beats the baseline where the mixtures bow: log_k_A 0.79 vs −1.74, rel_centroid_B 0.64 vs −1.09.
 - Still negative for every model on a held-out pair: `rel_width_X` (GP −3.1), `log_omega_max` (−2.9), `rel_width_B`, `high_enrich_B`, `shape_pc1`–`pc3`.
 
-**Running (2026-11-19):** `gp_vs_tree/gp_disorder.py` tests whether the X-site disorder features and a bowing-only target fix that. It covers 9 targets and three variants (base C+G; + disorder features; + disorder features with the target taken relative to the linear baseline). Each variant is fitted with GP and trees and scored on both a held-out pair and a held-out series (GroupKFold(5)). Output: `gp_vs_tree/disorder/gp_disorder.csv`. A quick local check reproduces the notebook's linear-baseline R²(series) for rel_centroid_A (0.19).
+### 8a. X-site disorder features and a bowing-only target don't help (2026-11-20)
+
+`gp_vs_tree/gp_disorder.py` (Sherlock array 52985751) fits three variants, each with a GP and with trees, for 9 targets:
+
+- **base:** the C+G inputs;
+- **+ disorder:** the X-site disorder features added (x_mix, mass_cv_X, r_spread_X, en_spread_X);
+- **bowing-only:** the same features, with the target taken relative to the end-member line, predicting only the deviation from it.
+
+They are scored two ways: on a held-out halide pair, and on held-out series where every pair is seen in training (GroupKFold(5)). All variants are scored on the same 672 compositions that have both end members. Output: `gp_vs_tree/disorder/gp_disorder.csv`. Figure: `gp_vs_tree/fig_gp_disorder.png` (`plot_gp_disorder.py`).
+
+R²(series), GP:
+
+| target | pair: line | pair: base | pair: + disorder | pair: bowing-only | series: base | series: + disorder | series: bowing-only |
+|---|---|---|---|---|---|---|---|
+| log_omega_log | 0.93 | 0.95 | 0.91 | 0.92 | 0.96 | 0.96 | 0.59 |
+| log_k_A | −1.74 | 0.79 | 0.79 | −1.63 | 0.82 | 0.82 | −15.4 |
+| rel_centroid_A | 0.19 | 0.71 | 0.70 | 0.18 | 0.87 | 0.87 | −1.75 |
+| rel_centroid_B | −1.09 | 0.71 | 0.30 | −0.91 | 0.87 | 0.86 | −2.51 |
+| rel_width_A | −3.44 | 0.07 | −0.01 | −2.96 | 0.31 | 0.30 | −9.05 |
+| log_msd_A | −2.14 | −0.07 | 0.03 | −1.86 | 0.34 | 0.35 | −18.5 |
+| shape_pc1 | −2.77 | −0.08 | −0.04 | −3.54 | 0.36 | 0.35 | −8.75 |
+| log_omega_max | −7.20 | −2.61 | −5.66 | −5.93 | −0.16 | −0.10 | −2.02 |
+| rel_width_X | −8.78 | −3.19 | −13.9 | −7.75 | 0.33 | 0.35 | −14.8 |
+
+How to read R²(series): it compares the error with the variation *within* a series (along x at fixed framework), not with the spread of the whole dataset. That variation is small. For rel_width_X its std is 0.020, against a base-GP error of 0.025–0.054 on a held-out pair, so R² = −3 means an error about twice the within-series spread. It is not a catastrophic error on the scale of the dataset (std 0.12).
+
+**+ disorder features: no gain, and losses on a held-out pair.** On held-out series the R² change is ≤ 0.02, so the features carry nothing the base inputs lack. On a held-out pair they hurt rel_width_X (−3.2 → −13.9), rel_centroid_B (0.71 → 0.30) and log_omega_max (−2.6 → −5.7). Reason, panel (c) of the figure: all 2,657 MP rows have disorder features of exactly 0, and each pair occupies its own interval. mass_cv_X, for example, is 0.15–0.23 for Br/I, 0.23–0.42 for Cl/Br and 0.31–0.67 for Cl/I. So the features act as a *pair label*. A held-out pair always lies outside the training range, and the GP extrapolates a pair-specific offset. For rel_width_X with Cl/Br held out, that offset is a mean bias of −0.064, three times the within-series std. They would only work with a mechanism that is the same function of the features across pairs, and with three pairs the GP can't learn one.
+
+**Bowing-only target: worse everywhere.** Two causes, both checked:
+1. *The mixtures don't sit on the end-member line, even at x = 1/6.* The mean offset from the line is larger than the variation along the series: for rel_width_X, median |offset| 0.035 against a within-series std of 0.020. It grows with halide mismatch: the mean offset is 0.007 for Br/I, 0.038 for Cl/Br and 0.097 for Cl/I, and the same ordering holds for ω_max and shape_pc1. Part of the offset is structural: the end member is a relaxed MP polymorph, while the mixtures are rattled SQS supercells. Predicting "line + bowing" therefore means predicting this offset for an unseen pair, the same extrapolation as above.
+2. *On held-out series the predicted bowing is noise.* Its spread is 2–2.5× the true bowing (log_k_A: 0.30 vs 0.12; rel_width_X: 0.084 vs 0.044), with correlation 0.01 (log_k_A), 0.1 (shape_pc1) and 0.4 (rel_width_X). The bowing is a small difference of two noisy values. A likely contributor, not tested: the 2,657 MP rows enter with bowing exactly 0, so the GP's fitted noise level reflects them rather than the mixtures. Predicting the full value, as base does, is the better parameterization.
+
+**Upshot.** On held-out series the base GP is already good, with R² 0.8–0.96 for frequency scale, A-site and B-site targets. The remaining failures are transfer to an unseen pair, and within-series targets (width, MSD, shape PC1) stuck at 0.3–0.35. The first is an extrapolation problem that composition features can't fix with three pairs. The second could be the single-SQS label noise (Section 9), which the 5-cell ensemble tests (Section 9b).
 
 ---
 
@@ -437,6 +469,32 @@ Production set, 689 dynamically stable mixtures with both references (meV/atom, 
 - For design, ΔF_mix(300 K) and its hull height act as a filter: a proposed mixed composition is only useful if it doesn't phase-separate.
 
 ---
+
+## 12. Prospective validation: proposal set and retrospective check (2026-11-19/20)
+
+**Setup** (`scripts/analysis/propose_candidates.py`). A design target is a vector of values on the five core axes (ω_log, rel_centroid_A, rel_width_A, shape_pc1, rel_centroid_B). A composition **hits** the target when *every* axis is within ±tol × that axis's MLIP noise (Chebyshev distance ≤ tol). The forward model is one GP per axis on C-tier inputs (composition and site assignment only), because a never-computed candidate has no relaxed geometry. For each candidate the GP gives a predictive N(μ, σ²) per axis, and candidates are ranked by Σ log P(|y − t| ≤ 3 × noise), which rewards both closeness and confidence.
+
+**Retrospective check: the same procedure on known answers.** Each of the 10 chemical clusters is held out in turn:
+1. Train on the MP polymorphs outside it.
+2. Draw 6 members of the held-out cluster as targets.
+3. Rank the rest of the cluster and take the top 8 (distinct formulas, the target's own formula excluded).
+4. Compare the top 8's hit rate with that of a random cluster member (the base rate).
+
+That makes 60 target draws. Output: `data/proposals/retrospective/`; figure `fig_retrospective.png` (`scripts/analysis/plot_retrospective.py`).
+
+| tol (noise units) | random member hits | top-8 hits | enrichment |
+|---|---|---|---|
+| ±2 | 1.3% | 6.2% | 4.7× |
+| ±3 | 3.6% | 18.3% | 5.1× |
+| ±5 | 12.0% | 46.5% | 3.9× |
+
+- **The model concentrates the search about 4–5× over random.** In 97% of the draws the top 8 have a smaller median miss than the cluster as a whole: median 5.3 vs 11.7 noise units.
+- **Most picks still miss at ±3.** The median top-8 miss of 5.3 noise units means a typical pick is off by more than 3 noise units on at least one of the five axes. Five axes at once is strict.
+- **It works for oxides and fails for halides, and that is mostly an artefact of how the clusters fall.** The chemical clusters split largely by anion: 0, 3, 4 and 8 are oxides, 7 chalcogenides, 2 and 6 fluorides, 1 chlorides (96% Cl), 5 bromides/iodides. The top-8 hit rate at ±3 is 0.27–0.38 for the oxide and chalcogenide clusters, 0.15 and 0.06 for the fluorides, and 0.02 for the chlorides and 0.00 for the bromides/iodides. Holding out an oxide cluster leaves three other oxide clusters in training. Holding out cluster 1 or 5 removes *every* chloride or *every* bromide/iodide, so it tests a held-out anion, which the scorecard already shows to be the hard case.
+- **For the prospective set this is pessimistic for halides.** There, all MP clusters (halides included) are in training. The halide targets t1–t3 (Rb₂LiTlBr₆, Cs₂LiBiF₆, K₂NaTlCl₆) still have predicted median misses of 4.1–5.5, against 1.4–1.9 for the oxide targets. So expect fewer hits on them.
+- **Limits.** Only 6 targets per cluster, so per-cluster rates are uncertain by about ±0.1–0.2. The retrospective trains on MP polymorphs only (no mixed halides). It scores against MLIP labels, so it says nothing about MLIP-vs-DFT fidelity.
+
+**Prospective set** (`data/proposals/mp_pool_v1/`): 48 proposals (6 medoid targets × 8) and 17 random controls from 1,219 never-computed MP perovskites. Nothing is computed yet. It needs a no-D3 MLIP run (`MODEL=...+nod3`), and some cells are 152–156 atoms (Ca–Mn oxides).
 
 ## Caveats and next step
 

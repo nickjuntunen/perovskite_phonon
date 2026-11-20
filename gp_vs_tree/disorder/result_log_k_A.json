@@ -1,0 +1,19 @@
+{
+ "target": "log_k_A",
+ "pair linear": -1.7443713622902304,
+ "pair base GP": 0.7879157849279941,
+ "pair base tree": 0.4444554462811572,
+ "pair dis GP": 0.7852597107455999,
+ "pair dis tree": 0.4387159561028313,
+ "pair dis_delta GP": -1.6344796845354543,
+ "pair dis_delta tree": -1.0423304453925941,
+ "series linear": -1.7443713622902304,
+ "series base GP": 0.8165142882216485,
+ "series base tree": 0.7069056046356159,
+ "series dis GP": 0.8165830385410657,
+ "series dis tree": 0.7037104959878853,
+ "series dis_delta GP": -15.438782619749222,
+ "series dis_delta tree": -0.21944636026471875,
+ "n_scored": 672,
+ "sec": 929.1972692012787
+}

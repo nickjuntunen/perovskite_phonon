@@ -24,12 +24,30 @@ members (the linear baseline exists), R2(series) pooled over each scheme's
 held-out rows, against the per-series mean as in the notebook. The linear
 baseline's own R2(series) on those rows is the reference line.
 
+SQS-ensemble refits (data/mixed_halides_ensemble: 5 SQS cells per Cl/Br and
+Br/I composition; used for compositions with >= 3 stable realizations):
+    --labels ensemble     target = the ensemble mean (analysis/ensemble_targets.csv,
+                          sqs_ensemble_rescore.py) instead of the single-SQS value,
+                          in training and scoring alike
+    --geometry ensemble   the G-tier inputs (relaxed-cell geometry: octahedra, tilts,
+                          bond valence) = their ensemble means (analysis/ensemble_average.csv)
+                          instead of the production cell's. Without this, a model can
+                          follow the production cell's own disorder noise through its
+                          geometry (sqs_ensemble_rescore.py's tracks_cell)
+    --tier C              composition features only (no geometry at all), the inputs
+                          propose_candidates.py ranks with
+    --no-gp               trees only (minutes instead of hours), GP column left empty
+Rows and folds are the same in every configuration. Output: gp_vs_tree/disorder
+for the defaults, else gp_vs_tree/disorder_<tier>_<labels>L_<geometry>G (or
+--out); sqs_ensemble_rescore.py reads every such directory.
+
 One target per call (one Slurm array task, see run_gp_disorder.sbatch);
 every (variant, scheme, fold) is checkpointed to <out>/parts/<target>/, so a
 requeued task resumes. Run from anywhere:
 
     uv run python3 gp_vs_tree/gp_disorder.py --target shape_pc1 --jobs 12
     uv run python3 gp_vs_tree/gp_disorder.py --summarize      # after all targets
+    uv run python3 gp_vs_tree/gp_disorder.py --target shape_pc1 --labels ensemble --geometry ensemble --variants base
 """
 
 import argparse
@@ -49,6 +67,8 @@ TARGETS = ["rel_centroid_A", "log_omega_log", "rel_centroid_B", "shape_pc1", "re
 VARIANTS = ["base", "dis", "dis_delta"]
 N_OPT = 1000  # rows the kernel hyperparameters are optimized on, as gp_try.py
 OUT = ROOT / "gp_vs_tree" / "disorder"
+ENSEMBLE_DIR = ROOT / "data" / "mixed_halides_ensemble" / "analysis"
+MIN_STABLE = 3  # stable realizations an ensemble label needs, as sqs_ensemble_rescore.py's default
 
 
 def summarize() -> None:
@@ -65,17 +85,35 @@ def summarize() -> None:
 
 
 def main() -> None:
-    global OUT, N_OPT
+    global OUT, N_OPT, VARIANTS, ENSEMBLE_DIR
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--target", choices=TARGETS)
     parser.add_argument("--task-index", type=int, default=None, help="Pick TARGETS[i] (Slurm array index)")
     parser.add_argument("--jobs", type=int, default=1, help="Parallel (variant, scheme, fold) fits")
     parser.add_argument("--summarize", action="store_true", help="Collect every target's result into one CSV")
-    parser.add_argument("--out", type=Path, default=OUT)
+    parser.add_argument("--out", type=Path, default=None,
+                        help="Default: gp_vs_tree/disorder, or disorder_<tier>_<labels>L_<geometry>G if any differ")
+    parser.add_argument("--labels", choices=["single", "ensemble"], default="single",
+                        help="Mixed-halide targets: production single-SQS values, or SQS-ensemble means where present")
+    parser.add_argument("--geometry", choices=["single", "ensemble"], default="single",
+                        help="Mixed-halide G-tier inputs: the production cell's, or SQS-ensemble means where present")
+    parser.add_argument("--tier", choices=["C+G", "C"], default="C+G")
+    parser.add_argument("--no-gp", action="store_true", help="Trees only")
+    parser.add_argument("--ensemble-dir", type=Path, default=ENSEMBLE_DIR,
+                        help="analysis/ dir of the SQS-ensemble set (ensemble_targets.csv, ensemble_average.csv)")
+    parser.add_argument("--variants", nargs="+", choices=VARIANTS, default=VARIANTS)
     parser.add_argument("--quick", action="store_true",
                         help="Smoke test: optimize the kernel on 100 rows instead of 1000 (use with a scratch --out)")
     args = parser.parse_args()
-    OUT = args.out
+    ENSEMBLE_DIR = args.ensemble_dir
+    cfg = {"labels": args.labels, "geometry": args.geometry, "tier": args.tier, "gp": not args.no_gp}
+    if args.tier == "C" and args.geometry == "ensemble":
+        parser.error("--tier C has no geometry inputs to average")
+    if args.out:
+        OUT = args.out
+    elif (args.labels, args.geometry, args.tier) != ("single", "single", "C+G"):
+        OUT = OUT.with_name(f"disorder_{args.tier.replace('+', '')}_{args.labels}L_{args.geometry}G")
+    VARIANTS = args.variants
     if args.quick:
         N_OPT = 100
     if args.summarize:
@@ -87,10 +125,10 @@ def main() -> None:
 
     g = {}
     exec(open(ROOT / "gp_vs_tree" / "gp_setup.py").read(), g)
-    run(target, g, args.jobs)
+    run(target, g, args.jobs, cfg)
 
 
-def run(tgt: str, g: dict, n_jobs: int) -> None:
+def run(tgt: str, g: dict, n_jobs: int, cfg: dict | None = None) -> None:
     import numpy as np
     import pandas as pd
     from joblib import Parallel, delayed
@@ -103,14 +141,33 @@ def run(tgt: str, g: dict, n_jobs: int) -> None:
 
     from src.analysis.composition_features import X_DISORDER_FEATURES, x_site_disorder
 
+    cfg = {"labels": "single", "geometry": "single", "tier": "C+G", "gp": True} | (cfg or {})
     t0 = time.time()
     df, dm, T, Tm, end_value, model, SEED = (g[k] for k in ("df", "dm", "T", "Tm", "end_value", "model", "SEED"))
-    base_feats = list(g["FEATS"])
+    base_feats = list(g["FEATS"]) if cfg["tier"] == "C+G" else list(g["C_FEATURES"])
     feats = {"base": base_feats, "dis": base_feats + X_DISORDER_FEATURES, "dis_delta": base_feats + X_DISORDER_FEATURES}
     X_all = pd.concat([g["X_all"], x_site_disorder(df)], axis=1)
     Xm = pd.concat([g["Xm"], x_site_disorder(dm)], axis=1)
+    if cfg["geometry"] == "ensemble":
+        ea = pd.read_csv(ENSEMBLE_DIR / "ensemble_average.csv")
+        ea = ea[ea["n_stable"] >= MIN_STABLE].set_index("formula")
+        dm_e = dm.copy()
+        cov = dm["formula"].isin(ea.index)
+        for c in g["G_FEATURES"]:
+            if f"{c}_mean" in ea:
+                dm_e.loc[cov, c] = dm.loc[cov, "formula"].map(ea[f"{c}_mean"])
+        Xg = g["input_features"](dm_e)
+        Xm.loc[cov, g["G_FEATURES"]] = Xg.loc[cov, g["G_FEATURES"]]
+        print(f"ensemble geometry for {int(cov.sum())}/{len(dm)} mixed compositions", flush=True)
 
     y = Tm[tgt]
+    if cfg["labels"] == "ensemble":
+        e = pd.read_csv(ENSEMBLE_DIR / "ensemble_targets.csv")
+        e = e[e["n_stable"] >= MIN_STABLE].set_index("run_name")[f"{tgt}_mean"].dropna()
+        new = dm["run_name"].map(e)
+        swap = new.notna() & y.notna()  # labels change; which rows exist (and so the folds) doesn't
+        y = y.where(~swap, new)
+        print(f"ensemble labels for {int(swap.sum())}/{int(y.notna().sum())} mixed compositions", flush=True)
     lin = pd.Series(((1 - dm["x2"]) * end_value[tgt].reindex(dm["end_X1"]).to_numpy()
                      + dm["x2"] * end_value[tgt].reindex(dm["end_X2"]).to_numpy()).to_numpy(), index=dm.index)
     ok = y.notna()
@@ -151,12 +208,14 @@ def run(tgt: str, g: dict, n_jobs: int) -> None:
         Z_tr, Z_te = p.transform(X_tr), p.transform(X_te)
         idx = np.random.default_rng(SEED).choice(len(y_tr), min(N_OPT, len(y_tr)), replace=False)
         kernel = ConstantKernel(1.0) * RBF(np.full(len(F), 3.0), (1e-2, 1e3)) + WhiteKernel(0.1, (1e-4, 1))
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            k_fit = GaussianProcessRegressor(kernel, normalize_y=True, random_state=SEED).fit(
-                Z_tr[idx], y_tr.iloc[idx]).kernel_
-            gp = GaussianProcessRegressor(k_fit, normalize_y=True, optimizer=None).fit(Z_tr, y_tr)
-            pred_gp = gp.predict(Z_te)
+        k_fit, pred_gp = "no GP (--no-gp)", np.full(int(te.sum()), np.nan)
+        if cfg["gp"]:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                k_fit = GaussianProcessRegressor(kernel, normalize_y=True, random_state=SEED).fit(
+                    Z_tr[idx], y_tr.iloc[idx]).kernel_
+                gp = GaussianProcessRegressor(k_fit, normalize_y=True, optimizer=None).fit(Z_tr, y_tr)
+                pred_gp = gp.predict(Z_te)
         pred_tree = model().fit(X_tr, y_tr).predict(X_te)
         if variant == "dis_delta":
             pred_gp, pred_tree = pred_gp + lin[te].to_numpy(), pred_tree + lin[te].to_numpy()
@@ -169,6 +228,8 @@ def run(tgt: str, g: dict, n_jobs: int) -> None:
 
     # pooled R2(series) per (variant, scheme, model), on the rows with a linear baseline
     def r2(idx, pred):
+        if np.isnan(np.asarray(pred, float)).all():  # --no-gp
+            return float("nan")
         yy, sm = y.loc[idx], series_mean.loc[idx]
         return float(1 - ((yy - pred) ** 2).sum() / ((yy - sm) ** 2).sum())
 
@@ -185,6 +246,7 @@ def run(tgt: str, g: dict, n_jobs: int) -> None:
                             for s, f, _ in folds if s == scheme])
             for name in ("GP", "tree"):
                 row[f"{scheme} {v} {name}"] = r2(pr.index, pr[name])
+    row |= {k: v for k, v in cfg.items()}
     row["n_scored"] = int(has_lin.sum())
     row["sec"] = time.time() - t0
     (OUT / f"result_{tgt}.json").write_text(json.dumps(row, indent=1))

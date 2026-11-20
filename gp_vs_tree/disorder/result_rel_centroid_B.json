@@ -1,0 +1,19 @@
+{
+ "target": "rel_centroid_B",
+ "pair linear": -1.090992895695281,
+ "pair base GP": 0.7055614758117866,
+ "pair base tree": -0.514910561093868,
+ "pair dis GP": 0.29573544935165086,
+ "pair dis tree": -0.42088031581695606,
+ "pair dis_delta GP": -0.9122609460530662,
+ "pair dis_delta tree": 0.5516657644638154,
+ "series linear": -1.090992895695281,
+ "series base GP": 0.8668352503263832,
+ "series base tree": 0.5634167458590664,
+ "series dis GP": 0.8596734248963358,
+ "series dis tree": 0.5800737636383037,
+ "series dis_delta GP": -2.5116115805850043,
+ "series dis_delta tree": 0.6899566061254763,
+ "n_scored": 672,
+ "sec": 902.0987958908081
+}

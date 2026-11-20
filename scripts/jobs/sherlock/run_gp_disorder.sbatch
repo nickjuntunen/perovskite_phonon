@@ -27,6 +27,10 @@
 #   sbatch --dependency=afterok:<array id> --time=00:10:00 --export=ALL,PROJECT_ROOT=$HOME/perovskite_phonon \
 #       --wrap 'ml python/3.12.1 && source $GROUP_HOME/nick/python_venvs/perovskite_analysis/bin/activate && \
 #               python $PROJECT_ROOT/gp_vs_tree/gp_disorder.py --summarize'
+#   # refit on SQS-ensemble labels (needs data/mixed_halides_ensemble/analysis/ensemble_targets.csv copied over;
+#   # summarize with --out gp_vs_tree/disorder_ens):
+#   sbatch --export=ALL,PROJECT_ROOT=$HOME/perovskite_phonon,GP_ARGS="--labels ensemble --variants base" \
+#       run_gp_disorder.sbatch
 
 set -euo pipefail
 : "${SLURM_ARRAY_TASK_ID:?submit as an array job (--array)}"
@@ -39,4 +43,4 @@ source "${GROUP_HOME}/nick/python_venvs/perovskite_analysis/bin/activate"
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 MPLBACKEND=Agg
 
 python -u "${PROJECT_ROOT}/gp_vs_tree/gp_disorder.py" \
-    --task-index "${SLURM_ARRAY_TASK_ID}" --jobs "${SLURM_CPUS_PER_TASK}"
+    --task-index "${SLURM_ARRAY_TASK_ID}" --jobs "${SLURM_CPUS_PER_TASK}" ${GP_ARGS:-}

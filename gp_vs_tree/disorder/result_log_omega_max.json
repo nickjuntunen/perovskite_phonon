@@ -1,0 +1,19 @@
+{
+ "target": "log_omega_max",
+ "pair linear": -7.2021668404616115,
+ "pair base GP": -2.613703637529806,
+ "pair base tree": -6.954301942556232,
+ "pair dis GP": -5.664447844841966,
+ "pair dis tree": -6.769044242400063,
+ "pair dis_delta GP": -5.930634227482676,
+ "pair dis_delta tree": -3.8697791285125023,
+ "series linear": -7.2021668404616115,
+ "series base GP": -0.15818893884031215,
+ "series base tree": -0.5324942052070276,
+ "series dis GP": -0.10476933278315737,
+ "series dis tree": -0.5579057943092767,
+ "series dis_delta GP": -2.0239825747407054,
+ "series dis_delta tree": 0.22955483787231268,
+ "n_scored": 672,
+ "sec": 1071.8137238025665
+}

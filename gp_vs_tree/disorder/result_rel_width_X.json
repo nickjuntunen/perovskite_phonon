@@ -1,0 +1,19 @@
+{
+ "target": "rel_width_X",
+ "pair linear": -8.776880387617927,
+ "pair base GP": -3.1869193076107623,
+ "pair base tree": -7.6916813729979445,
+ "pair dis GP": -13.86929388335756,
+ "pair dis tree": -6.189585646225315,
+ "pair dis_delta GP": -7.748510588633035,
+ "pair dis_delta tree": -5.521175239255992,
+ "series linear": -8.776880387617927,
+ "series base GP": 0.332654873361088,
+ "series base tree": -0.5841066671118083,
+ "series dis GP": 0.34892576229896544,
+ "series dis tree": -0.4002282676332176,
+ "series dis_delta GP": -14.84295297506522,
+ "series dis_delta tree": -0.3510092306983368,
+ "n_scored": 672,
+ "sec": 1024.4736320972443
+}
