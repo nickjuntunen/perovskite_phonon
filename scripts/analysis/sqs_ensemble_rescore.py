@@ -287,8 +287,11 @@ def figures(res: pd.DataFrame, base: pd.DataFrame, sources: dict, targets: list[
     ex = [t for t in ["rel_width_X", "shape_pc1", "rel_centroid_B", "log_msd_A"] if t in set(d["target"])][:3]
     # the two longest series of each pair
     per = base.groupby("series").agg(n=("x2", "size"), pair=("pair", "first"))
-    per = per[per["n"] >= 4].sort_values("n", ascending=False)
+    per = per[per["n"] >= 3].sort_values("n", ascending=False)
     pick = [s for pair in ("Br/I", "Cl/Br") for s in per.index[per["pair"] == pair][:2]]
+    if not pick or not ex:
+        print("no series with >= 3 averaged compositions: rescore_series.png skipped")
+        return
     fig, axes = plt.subplots(len(ex), len(pick), figsize=(2.6 * len(pick), 2.1 * len(ex)), squeeze=False)
     for i, t in enumerate(ex):
         pred = sources[(src, t)]

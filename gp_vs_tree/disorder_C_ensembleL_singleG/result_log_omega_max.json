@@ -1,0 +1,15 @@
+{
+ "target": "log_omega_max",
+ "pair linear": -7.260020667343166,
+ "pair base GP": NaN,
+ "pair base tree": -8.523944333521758,
+ "series linear": -7.260020667343166,
+ "series base GP": NaN,
+ "series base tree": -0.7612663189803952,
+ "labels": "ensemble",
+ "geometry": "single",
+ "tier": "C",
+ "gp": false,
+ "n_scored": 672,
+ "sec": 5.203256368637085
+}

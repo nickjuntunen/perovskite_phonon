@@ -1,0 +1,15 @@
+{
+ "target": "rel_centroid_B",
+ "pair linear": -1.1693074967199646,
+ "pair base GP": NaN,
+ "pair base tree": -0.8531360156436292,
+ "series linear": -1.1693074967199646,
+ "series base GP": NaN,
+ "series base tree": 0.5677393268246578,
+ "labels": "ensemble",
+ "geometry": "ensemble",
+ "tier": "C+G",
+ "gp": false,
+ "n_scored": 672,
+ "sec": 5.657837629318237
+}

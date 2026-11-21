@@ -1,0 +1,15 @@
+{
+ "target": "rel_width_X",
+ "pair linear": -9.551784976529103,
+ "pair base GP": NaN,
+ "pair base tree": -11.140556219933424,
+ "series linear": -9.551784976529103,
+ "series base GP": NaN,
+ "series base tree": -1.5307790003525277,
+ "labels": "ensemble",
+ "geometry": "single",
+ "tier": "C",
+ "gp": false,
+ "n_scored": 672,
+ "sec": 5.084563732147217
+}

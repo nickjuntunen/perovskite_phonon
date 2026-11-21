@@ -1,0 +1,15 @@
+{
+ "target": "shape_pc1",
+ "pair linear": -2.955774232438082,
+ "pair base GP": NaN,
+ "pair base tree": -1.1705436601078625,
+ "series linear": -2.955774232438082,
+ "series base GP": NaN,
+ "series base tree": -0.6580185898118078,
+ "labels": "ensemble",
+ "geometry": "ensemble",
+ "tier": "C+G",
+ "gp": false,
+ "n_scored": 672,
+ "sec": 5.574831485748291
+}

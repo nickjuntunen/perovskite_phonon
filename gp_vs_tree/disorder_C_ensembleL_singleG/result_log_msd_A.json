@@ -1,0 +1,15 @@
+{
+ "target": "log_msd_A",
+ "pair linear": -2.9805172815722276,
+ "pair base GP": NaN,
+ "pair base tree": -1.8317387179873457,
+ "series linear": -2.9805172815722276,
+ "series base GP": NaN,
+ "series base tree": -1.0875607720182439,
+ "labels": "ensemble",
+ "geometry": "single",
+ "tier": "C",
+ "gp": false,
+ "n_scored": 672,
+ "sec": 4.93569803237915
+}

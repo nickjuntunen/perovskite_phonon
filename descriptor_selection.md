@@ -391,7 +391,7 @@ Each production mixture is one SQS realization. A different cell of the same com
 | Mild (0.85–0.93) | low_enrich_X/A, shape_pc1–4, log_k_B, high_enrich_B, rel_centroid_A/B |
 | Disorder-limited (SNR_series ≤ 1.9) | ω_max 0.73, rel_width_X 0.77, rel_width_A 0.62, rel_width_B 0.67, log_msd_B 0.62, log_msd_X 0.43, log_msd_A 0.35, log_k_A 0.28 |
 
-- Scoring against the ensemble mean barely changes any model's R². Where models fall short, the x-dependence is unlearned, not drowned in noise. Most targets have models well below their ceiling.
+- On these 115 compositions, scoring against the ensemble mean barely changes any model's R². The full ensemble (Section 9b) shows otherwise. Where models fall short, the x-dependence is unlearned, not drowned in noise. Most targets have models well below their ceiling.
 - The GP beats trees and the linear baseline on almost every target here too.
 - For the disorder-limited targets, production would need ensemble averages over several SQS cells before a model could be scored meaningfully along x.
 - **Seed noise vs MLIP noise** on the core targets: ω_log 0.29×, rel_centroid_A 1.02×, rel_width_A 0.78×, shape_pc1 0.59×, rel_centroid_B 1.47×. Disorder noise is comparable to the MLIP noise, and larger for rel_centroid_B.
@@ -417,6 +417,63 @@ Each production mixture is one SQS realization. A different cell of the same com
 - **Caveats:**
   - The 40-atom cells have few distinct arrangements: only 62 of 115 compositions gave 5 distinct cells from 5 seeds. Averaging more seeds than there are distinct cells converges to that cell size's ensemble, not to the random alloy.
   - Every seed uses the same supercell, so the finite-cell bias is not measured. It needs a larger supercell.
+
+### 9b. Full SQS ensemble: re-scoring the series models (2026-11-20)
+
+**Set-up.**
+- **Ensemble:** 5 SQS cells for every Cl/Br and Br/I composition, from array 52996336 plus 1,200 reused runs (`data/mixed_halides_ensemble/reuse.csv`). Cl/I was skipped.
+- **Pipeline:** `scripts/analysis/postprocess_sqs_ensemble.sh` links the runs, selects and describes them, averages per composition and re-scores. Output: `data/mixed_halides_ensemble/analysis/`.
+- **Coverage:** 3,709 stable cells over 885 compositions. 614 compositions have all 5 cells stable, and 782 of the 993 production compositions matched.
+- **Scored rows:** compositions with ≥ 3 stable cells, in series with ≥ 2 such rows. That leaves 530 compositions in 118 series (375 Cl/Br, 155 Br/I).
+- **Scoring:** `sqs_ensemble_rescore.py` scores each set of held-out-series predictions on the same rows two ways: against the production cell and against the 5-cell mean. The bracket is a series-bootstrap 95% CI on the change.
+- **Noise test (`tracks_cell`):** the slope of (prediction − mean) on (production cell − mean). A slope of 0 means the model predicts the mean. A slope of 1 means it predicts that cell's own disorder noise.
+
+**Results.**
+
+1. **The existing models predict that cell's noise, not the composition.** The base series GP has `tracks_cell` 0.6–1.0 on most targets. So its R² drops when it is scored against the mean (`figures/rescore_r2.png`):
+
+   | target | GP vs production cell | GP vs 5-cell mean | ΔR² 95% CI | ceiling |
+   |---|---|---|---|---|
+   | ω_log | 0.95 | 0.94 | [−0.01, 0.00] | 1.00 |
+   | rel_centroid_A | 0.85 | 0.62 | [−0.38, −0.09] | 0.95 |
+   | rel_centroid_B | 0.84 | 0.68 | [−0.25, −0.08] | 0.97 |
+   | shape_pc1 | 0.25 | −0.11 | [−0.53, −0.21] | 0.92 |
+   | rel_width_A | 0.17 | −0.15 | [−0.57, −0.15] | 0.89 |
+   | rel_width_X | 0.20 | −0.12 | [−0.54, −0.18] | 0.93 |
+   | log_k_A | 0.78 | −0.18 | [−1.56, −0.62] | 0.79 |
+   | log_msd_A | 0.31 | −0.31 | [−1.06, −0.28] | 0.74 |
+
+   - **Ceiling:** the expected R² of a perfect predictor against the 5-cell mean, given the averaging error that remains.
+   - **How the GP sees the noise:** the GP never sees the held-out cell's own label. It reads that cell's noise from the cell's own geometry, the G-tier features.
+   - **Why the model has learned this:** trained on single-cell labels, it learns how geometry noise maps to label noise.
+   - **Check:** a tree refit on ensemble labels but the same single-cell geometry has `tracks_cell` ≈ 0 (0.01 for log_k_A, against 0.78 for the base tree). It ignores geometry noise that no longer predicts the label.
+   - **No leakage:** no formula appears in more than one series.
+   - **This corrects §9.** That section said the ensemble re-scoring barely changes the R², but that came from 115 compositions; the full set shows the drop clearly.
+
+2. **Refitting on averaged labels and averaged geometry helps the trees, but not where it matters.** These are tree-only refits, scored against the 5-cell mean (`gp_vs_tree/disorder_*`):
+
+   | target | base tree | averaged labels + averaged geometry | C tier, averaged labels | bowing-only tree (single) |
+   |---|---|---|---|---|
+   | rel_centroid_A | 0.51 | 0.61 | 0.37 | 0.60 |
+   | rel_centroid_B | 0.37 | 0.56 | 0.34 | 0.65 |
+   | log_k_A | −0.21 | 0.45 | −1.47 | −1.12 |
+   | log_msd_A | −0.34 | −0.01 | −2.08 | −0.87 |
+   | rel_width_A | −0.61 | −0.38 | −1.91 | −0.64 |
+   | rel_width_X | −1.31 | −1.03 | −2.31 | −0.60 |
+   | shape_pc1 | −2.16 | −2.18 | −3.27 | −0.55 |
+
+   - **C tier:** composition-only features are far worse. Geometry carries real signal, not just noise.
+   - **Widths and shape:** they stay below zero under every tree variant, against ceilings of 0.89–0.93. These targets are unlearned along x, not noise-limited.
+   - **Bowing-only tree:** it is the best tree on shape_pc1 and rel_width_X (it was the worst GP variant in §8a). Its ensemble refit hasn't been run.
+
+3. **Br/I is the hard pair.** It does worst on both B-site targets: for the base series GP, rel_centroid_B goes from 0.55 to −0.67 against the mean, and log_k_A goes from 0.51 to −0.76 (ceiling 0.61). Cl/Br is better on both.
+
+**Upshot.**
+- **Production R²:** the single-cell R² values in §8–8a for A-site, B-site and stiffness targets are partly disorder noise.
+- **The decisive test is the GP refit on averaged labels and geometry.** `gp_disorder.py --labels ensemble --geometry ensemble` is ready and needs Sherlock.
+- **What the trees suggest for widths and shape:**
+  - averaging won't lift them above zero;
+  - a GP trained to predict the mean may hold onto ω_log and the centroids and recover log_k_A.
 
 ---
 

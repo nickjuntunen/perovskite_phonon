@@ -1,0 +1,15 @@
+{
+ "target": "log_k_A",
+ "pair linear": -2.8172664629244175,
+ "pair base GP": NaN,
+ "pair base tree": -2.2869292893669497,
+ "series linear": -2.8172664629244175,
+ "series base GP": NaN,
+ "series base tree": -0.9439600774043131,
+ "labels": "ensemble",
+ "geometry": "single",
+ "tier": "C",
+ "gp": false,
+ "n_scored": 672,
+ "sec": 5.100429534912109
+}
